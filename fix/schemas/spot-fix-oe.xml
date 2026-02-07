@@ -39,6 +39,8 @@
    <field name='ExecInst' required='N'/>
    <field name='Price' required='N'/>
    <component name='TriggeringInstruction' required='N'/>
+   <component name='PegInstructions' required='N'/>
+   <field name='PeggedPrice' required='N'/>
    <field name='TimeInForce' required='N'/>
    <field name='TransactTime' required='N'/>
    <field name='OrderCreationTime' required='N'/>
@@ -111,8 +113,11 @@
    <field name='Username' required='N'/>
    <field name='MessageHandling' required='N'/>
    <field name='ResponseMode' required='N'/>
+   <field name='ExecutionReportType' required='N'/>
    <field name='DropCopyFlag' required='N'/>
    <field name='UUID' required='N'/>
+   <field name='SBESchemaID' required='N'/>
+   <field name='SBESchemaVersion' required='N'/>
   </message>
   <message name='NewOrderSingle' msgcat='app' msgtype='D'>
    <component name='NewOrder' required='Y'/>
@@ -121,6 +126,7 @@
   <message name='NewOrderList' msgcat='app' msgtype='E'>
    <field name='ClListID' required='Y'/>
    <field name='ContingencyType' required='Y'/>
+   <field name='OPO' required='N'/>
    <group name='NoOrders' required='N'>
     <component name='NewOrder' required='Y'/>
     <component name='ListTriggeringInstruction' required='N'/>
@@ -136,7 +142,7 @@
    <field name='CancelRestrictions' required='N'/>
   </message>
   <message name='ListStatus' msgcat='app' msgtype='N'>
-   <field name='Symbol' required='Y'/>
+   <field name='Symbol' required='N'/>
    <field name='ListID' required='N'/>
    <field name='ClListID' required='N'/>
    <field name='OrigClListID' required='N'/>
@@ -170,6 +176,22 @@
    <field name='ErrorCode' required='N'/>
    <field name='Text' required='N'/>
   </message>
+  <message name='OrderAmendKeepPriorityRequest' msgcat='app' msgtype='XAK'>
+   <field name='ClOrdID' required='Y'/>
+   <field name='OrigClOrdID' required='N'/>
+   <field name='OrderID' required='N'/>
+   <field name='Symbol' required='Y'/>
+   <field name='OrderQty' required='Y'/>
+  </message>
+  <message name='OrderAmendReject' msgcat='app' msgtype='XAR'>
+   <field name='ClOrdID' required='Y'/>
+   <field name='OrigClOrdID' required='N'/>
+   <field name='OrderID' required='N'/>
+   <field name='Symbol' required='Y'/>
+   <field name='OrderQty' required='Y'/>
+   <field name='ErrorCode' required='Y'/>
+   <field name='Text' required='Y'/>
+  </message>
   <message name='LimitQuery' msgcat='app' msgtype='XLQ'>
    <field name='ReqID' required='Y'/>
   </message>
@@ -191,6 +213,12 @@
   <field name='CheckSum' required='Y'/>
  </trailer>
  <components>
+  <component name='PegInstructions'>
+   <field name='PegOffsetValue' required='N'/>
+   <field name='PegPriceType' required='N'/>
+   <field name='PegMoveType' required='N'/>
+   <field name='PegOffsetType' required='N'/>
+  </component>
   <component name='TriggeringInstruction'>
    <field name='TriggerType' required='N'/>
    <field name='TriggerAction' required='N'/>
@@ -213,6 +241,7 @@
    <field name='ExecInst' required='N'/>
    <field name='Price' required='N'/>
    <component name='TriggeringInstruction' required='N'/>
+   <component name='PegInstructions' required='N'/>
    <field name='Side' required='Y'/>
    <field name='Symbol' required='Y'/>
    <field name='TimeInForce' required='N'/>
@@ -225,7 +254,7 @@
  </components>
  <fields>
   <field number='8' name='BeginString' type='STRING'>
-    <value enum='FIX.4.4' description='FIX44'/>
+   <value enum='FIX.4.4' description='FIX44'/>
   </field>
   <field number='9' name='BodyLength' type='LENGTH'/>
   <field number='10' name='CheckSum' type='STRING'/>
@@ -253,6 +282,8 @@
    <value enum='N' description='LIST_STATUS'/>
    <value enum='q' description='ORDER_MASS_CANCEL_REQUEST'/>
    <value enum='r' description='ORDER_MASS_CANCEL_REPORT'/>
+   <value enum='XAK' description='ORDER_AMEND_KEEP_PRIORITY_REQUEST'/>
+   <value enum='XAR' description='ORDER_AMEND_REJECT'/>
    <value enum='XCN' description='ORDER_CANCEL_REQUEST_AND_NEW_ORDER_SINGLE'/>
    <value enum='XLQ' description='LIMIT_QUERY'/>
    <value enum='XLR' description='LIMIT_RESPONSE'/>
@@ -274,6 +305,7 @@
    <value enum='2' description='LIMIT'/>
    <value enum='3' description='STOP'/>
    <value enum='4' description='STOP_LIMIT'/>
+   <value enum='P' description='PEGGED'/>
   </field>
   <field number='41' name='OrigClOrdID' type='STRING'/>
   <field number='44' name='Price' type='PRICE'/>
@@ -328,6 +360,7 @@
   </field>
   <field number='151' name='LeavesQty' type='QTY'/>
   <field number='152' name='CashOrderQty' type='QTY'/>
+  <field number='211' name='PegOffsetValue' type='FLOAT'/>
   <field number='371' name='RefTagID' type='INT'/>
   <field number='372' name='RefMsgType' type='STRING'/>
   <field number='373' name='SessionRejectReason' type='INT'>
@@ -349,6 +382,7 @@
    <value enum='2' description='RESPONSE'/>
    <value enum='4' description='EXEC_STARTED'/>
    <value enum='5' description='ALL_DONE'/>
+   <value enum='100' description='UPDATED'/>
   </field>
   <field number='431' name='ListOrderStatus' type='INT'>
    <value enum='3' description='EXECUTING'/>
@@ -376,11 +410,22 @@
   </field>
   <field number='636' name='WorkingIndicator' type='BOOLEAN'/>
   <field number='811' name='PriceDelta' type='INT'/>
+  <field number='835' name='PegMoveType' type='INT'>
+   <value enum='1' description='FIXED'/>
+  </field>
+  <field number='836' name='PegOffsetType' type='CHAR'>
+   <value enum='3' description='PRICE_TIER'/>
+  </field>
+  <field number='839' name='PeggedPrice' type='PRICE'/>
   <field number='847' name='TargetStrategy' type='INT'/>
   <field number='1003' name='TradeID' type='INT'/>
   <field number='1057' name='AggressorIndicator' type='BOOLEAN'>
    <value enum='Y' description='ORDER_INITIATOR_IS_AGGRESSOR'/>
    <value enum='N' description='ORDER_INITIATOR_IS_PASSIVE'/>
+  </field>
+  <field number='1094' name='PegPriceType' type='CHAR'>
+   <value enum='4' description='MARKET_PEG'/>
+   <value enum='5' description='PRIMARY_PEG'/>
   </field>
   <field number='1100' name='TriggerType' type='CHAR'>
    <value enum='4' description='PRICE_MOVEMENT'/>
@@ -408,12 +453,14 @@
   <field number='6136' name='ReqID' type='STRING'/>
   <field number='7940' name='StrategyID' type='INT'/>
   <field number='9406' name='DropCopyFlag' type='BOOLEAN'/>
-  <field number='25000' name='RecvWindow' type='INT'/>
+  <field number='25000' name='RecvWindow' type='FLOAT'/>
   <field number='25001' name='SelfTradePreventionMode' type='CHAR'>
    <value enum='1' description='NONE'/>
    <value enum='2' description='EXPIRE_TAKER'/>
    <value enum='3' description='EXPIRE_MAKER'/>
    <value enum='4' description='EXPIRE_BOTH'/>
+   <value enum='5' description='DECREMENT'/>
+   <value enum='6' description='TRANSFER'/>
   </field>
   <field number='25002' name='CancelRestrictions' type='INT'>
    <value enum='1' description='ONLY_NEW'/>
@@ -484,5 +531,13 @@
    <value enum='1' description='DO_NOTHING'/>
    <value enum='2' description='CANCEL_ONLY'/>
   </field>
+  <field number='25045' name='ExecutionReportType' type='INT'>
+   <value enum='1' description='FULL'/>
+   <value enum='2' description='MINI'/>
+  </field>
+  <field number='25046' name='OPO' type='BOOLEAN'/>
+  <field number='25050' name='SBESchemaID' type='INT'/>
+  <field number='25051' name='SBESchemaVersion' type='INT'/>
+  <field number='25052' name='SBESchemaVersionDeprecated' type='INT'/>
  </fields>
 </fix>

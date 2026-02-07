@@ -1,9 +1,9 @@
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
+- [WebSocket Streams for Binance SPOT Testnet](#websocket-streams-for-binance-spot-testnet)
   - [General WSS information](#general-wss-information)
-  - [Websocket Limits](#websocket-limits)
+  - [WebSocket Limits](#websocket-limits)
   - [Live Subscribing/Unsubscribing to streams](#live-subscribingunsubscribing-to-streams)
     - [Subscribe to a stream](#subscribe-to-a-stream)
     - [Unsubscribe to a stream](#unsubscribe-to-a-stream)
@@ -19,7 +19,6 @@
   - [Individual Symbol Mini Ticker Stream](#individual-symbol-mini-ticker-stream)
   - [All Market Mini Tickers Stream](#all-market-mini-tickers-stream)
   - [Individual Symbol Ticker Streams](#individual-symbol-ticker-streams)
-  - [All Market Tickers Stream](#all-market-tickers-stream)
   - [Individual Symbol Rolling Window Statistics Streams](#individual-symbol-rolling-window-statistics-streams)
   - [All Market Rolling Window Statistics Streams](#all-market-rolling-window-statistics-streams)
   - [Individual Symbol Book Ticker Streams](#individual-symbol-book-ticker-streams)
@@ -30,25 +29,30 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Web Socket Streams for Binance (2025-01-28)
+# WebSocket Streams for Binance SPOT Testnet
 
 ## General WSS information
-* The base endpoint is: **wss://stream.binance.com:9443** or **wss://stream.binance.com:443**
-* Streams can be accessed either in a single raw stream or in a combined stream.
+* The base endpoint is: **wss://stream.testnet.binance.vision/ws**.
+* Streams can be accessed either in a single raw stream or in a combined stream
 * Raw streams are accessed at **/ws/\<streamName\>**
 * Combined streams are accessed at **/stream?streams=\<streamName1\>/\<streamName2\>/\<streamName3\>**
 * Combined stream events are wrapped as follows: **{"stream":"\<streamName\>","data":\<rawPayload\>}**
 * All symbols for streams are **lowercase**
+* All time and timestamp related fields are **milliseconds by default**. To receive the information in microseconds, please add the parameter `timeUnit=MICROSECOND` or `timeUnit=microsecond` in the URL.
+  * For example: `/stream?streams=btcusdt@trade&timeUnit=MICROSECOND`
 * A single connection to **stream.binance.com** is only valid for 24 hours; expect to be disconnected at the 24 hour mark
-* The websocket server will send a `ping frame` every 20 seconds.  
-  * If the websocket server does not receive a `pong frame` back from the connection within a minute the connection will be disconnected.  
-  * When you receive a ping, you must send a pong with a copy of ping's payload as soon as possible.  
+* The WebSocket server will send a `ping frame` every 20 seconds.
+  * If the WebSocket server does not receive a `pong frame` back from the connection within a minute, the connection will be disconnected.
+  * When you receive a ping, you must send a pong with a copy of ping's payload as soon as possible.
   * Unsolicited `pong frames` are allowed, but will not prevent disconnection. **It is recommended that the payload for these pong frames are empty.**
 * The base endpoint **wss://data-stream.binance.vision** can be subscribed to receive **only** market data messages. <br> User data stream is **NOT** available from this URL.
-* All time and timestamp related fields are **milliseconds by default**. To receive the information in microseconds, please add the parameter `timeUnit=MICROSECOND or timeUnit=microsecond` in the URL.  
+* All time and timestamp related fields are **milliseconds by default**. To receive the information in microseconds, please add the parameter `timeUnit=MICROSECOND or timeUnit=microsecond` in the URL.
   * For example: `/stream?streams=btcusdt@trade&timeUnit=MICROSECOND`
+* If your request contains a symbol name containing non-ASCII characters, then the stream events may contain non-ASCII characters encoded in UTF-8.
+* [All Market Mini Tickers Stream](#all-market-mini-tickers-stream and [All Market Rolling Window Statistics Streams](#all-market-rolling-window-statistics-streams) events may contain non-ASCII characters encoded in UTF-8.
 
-## Websocket Limits
+
+## WebSocket Limits
 * WebSocket connections have a limit of 5 incoming messages per second. A message is considered:
     * A PING frame
     * A PONG frame
@@ -59,7 +63,7 @@
 
 ## Live Subscribing/Unsubscribing to streams
 
-* The following data can be sent through the websocket instance in order to subscribe/unsubscribe from streams. Examples can be seen below.
+* The following data can be sent through the WebSocket instance in order to subscribe/unsubscribe from streams. Examples can be seen below.
 * The `id` is used as an identifier to uniquely identify the messages going back and forth. The following formats are accepted:
   * 64-bit signed integer
   * alphanumeric strings; max length 36
@@ -235,9 +239,10 @@ The Trade Streams push raw trade information; each trade has a unique buyer and 
 ```
 
 ## Kline/Candlestick Streams for UTC
-The Kline/Candlestick Stream push updates to the current klines/candlestick every second in `UTC+0` timezone
+The Kline/Candlestick Stream push updates to the current klines/candlestick every second in `UTC+0` timezone.
 
 <a id="kline-intervals"></a>
+
 **Kline/Candlestick chart intervals:**
 
 s-> seconds; m -> minutes; h -> hours; d -> days; w -> weeks; M -> months
@@ -258,7 +263,6 @@ s-> seconds; m -> minutes; h -> hours; d -> days; w -> weeks; M -> months
 * 3d
 * 1w
 * 1M
-  
 
 **Stream Name:** \<symbol\>@kline_\<interval\>
 
@@ -293,16 +297,16 @@ s-> seconds; m -> minutes; h -> hours; d -> days; w -> weeks; M -> months
 ```
 
 ## Kline/Candlestick Streams with timezone offset
-The Kline/Candlestick Stream push updates to the current klines/candlestick every second in `UTC+8` timezone
+
+The Kline/Candlestick Stream push updates to the current klines/candlestick every second in `UTC+8` timezone.
 
 **Kline/Candlestick chart intervals:**
-
 Supported intervals: See [`Kline/Candlestick chart intervals`](#kline-intervals)
 
 **UTC+8 timezone offset:**
 
 * Kline intervals open and close in the `UTC+8` timezone. For example the `1d` klines will open at the beginning of the `UTC+8` day, and close at the end of the `UTC+8` day.
-* Note that `E` (event time), `t` (start time) and `T` (close time) in the payload are Unix timestamps, which are always interpreted in UTC.
+* Note that `E` (event time), `t` (start time), and `T` (close time) in the payload are Unix timestamps, which are always interpreted in UTC.
 
 **Stream Name:** \<symbol\>@kline_\<interval\>@+08:00
 
@@ -410,22 +414,6 @@ Supported intervals: See [`Kline/Candlestick chart intervals`](#kline-intervals)
 }
 ```
 
-## All Market Tickers Stream
-24hr rolling window ticker statistics for all symbols that changed in an array. These are NOT the statistics of the UTC day, but a 24hr rolling window for the previous 24hrs. Note that only tickers that have changed will be present in the array.
-
-**Stream Name:** !ticker@arr
-
-**Update Speed:** 1000ms
-
-**Payload:**
-```javascript
-[
-  {
-    // Same as <symbol>@ticker payload
-  }
-]
-```
-
 ## Individual Symbol Rolling Window Statistics Streams
 
 Rolling window ticker statistics for a single symbol, computed over multiple windows.
@@ -437,8 +425,8 @@ Rolling window ticker statistics for a single symbol, computed over multiple win
 **Update Speed:** 1000ms
 
 **Note**: This stream is different from the \<symbol\>@ticker stream.
-The open time `"O"` always starts on a minute, while the closing time `"C"` is the current time of the update.
-As such, the effective window might be up to 59999ms wider than \<window_size\>.
+The open time `O` always starts on a minute, while the closing time `C` is the current time of the update.
+As such, the effective window might be up to 59999ms wider that \<window_size\>.
 
 **Payload:**
 
@@ -480,7 +468,7 @@ Note that only tickers that have changed will be present in the array.
 ```javascript
 [
   {
-    // Same as <symbol>@ticker_<window_size> payload,
+    // Same as <symbol>@ticker_<window-size> payload,
     // one for each symbol updated within the interval.
   }
 ]
@@ -585,24 +573,27 @@ Order book price and quantity depth updates used to locally manage an order book
 ```
 
 ## How to manage a local order book correctly
-1. Open a WebSocket connection to `wss://stream.binance.com:9443/ws/bnbbtc@depth`.
+1. Open a WebSocket connection to `wss://stream.testnet.binance.vision:9443/ws/bnbbtc@depth`.
 1. Buffer the events received from the stream. Note the `U` of the first event you received.
-1. Get a depth snapshot from `https://api.binance.com/api/v3/depth?symbol=BNBBTC&limit=5000`.
+1. Get a depth snapshot from `https://testnet.binance.vision/api/v3/depth?symbol=BNBBTC&limit=5000`.
 1. If the `lastUpdateId` from the snapshot is strictly less than the `U` from step 2, go back to step 3.
 1. In the buffered events, discard any event where `u` is <= `lastUpdateId` of the snapshot. The first buffered event should now have `lastUpdateId` within its `[U;u]` range.
 1. Set your local order book to the snapshot. Its update ID is `lastUpdateId`.
 1. Apply the update procedure below to all buffered events, and then to all subsequent events received.
 
 To apply an event to your local order book, follow this update procedure:
-1. If the event `u` (last update ID) is < the update ID of your local order book, ignore the event.
-1. If the event `U` (first update ID) is > the update ID of your local order book, something went wrong. Discard your local order book and restart the process from the beginning.
+1. Decide whether the update event can be applied:
+    * If the event last update ID (`u`) is less than the update ID of your local order book,
+      ignore the event.
+    * If the event first update ID (`U`) is greater than the update ID of your local order book + 1,
+      you have missed some events. <br> Discard your local order book and restart the process from the beginning.
+    * Normally, `U` of the next event is equal to `u + 1` of the previous event.
 1. For each price level in bids (`b`) and asks (`a`), set the new quantity in the order book:
     * If the price level does not exist in the order book, insert it with new quantity.
     * If the quantity is zero, remove the price level from the order book.
 1. Set the order book update ID to the last update ID (`u`) in the processed event.
 
 > [!NOTE]
-> Since depth snapshots retrieved from the API have a limit on the number of price levels (5000 on each side maximum), you won't learn the quantities for the levels outside of the initial snapshot unless they change. <br> 
+> Since depth snapshots retrieved from the API have a limit on the number of price levels (5000 on each side maximum), you won't learn the quantities for the levels outside of the initial snapshot unless they change. <br>
 > So be careful when using the information for those levels, since they might not reflect the full view of the order book. <br>
 > However, for most use cases, seeing 5000 levels on each side is enough to understand the market and trade effectively.
-

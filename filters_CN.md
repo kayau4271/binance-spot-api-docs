@@ -1,8 +1,9 @@
 # 过滤器
 过滤器，即Filter，定义了一系列交易规则。
-共有两类，分别是针对交易对的过滤器`symbol filters`，和针对整个交易所的过滤器`exchange filters`
+共有三类，分别是针对交易对的过滤器 `symbol filters`，针对整个交易所的过滤器 `exchange filters` 和针对资产的过滤器 `asset filters`。
 
 ## 交易对过滤器
+<a id="price"></a>
 ### PRICE_FILTER 价格过滤器
 价格过滤器用于检测order订单中price参数的合法性
 * `minPrice` 定义了 `price`/`stopPrice` 允许的最小值; `minPrice` == 0 的时候则失效。
@@ -71,7 +72,7 @@
     "avgPriceMins": 1
   }
 ```
-<a id="lotsize"></a>
+<a id="lot_size"></a>
 ### LOT_SIZE 订单尺寸
 "lots" 是拍卖术语，这个过滤器对订单中的 `quantity` 也就是数量参数进行合法性检查。包含三个部分：
 
@@ -100,9 +101,9 @@ MIN_NOTIONAL过滤器定义了交易对订单所允许的最小名义价值(成�
 订单的名义价值是`价格`*`数量`。
 如果是高级订单(比如止盈止损订单`STOP_LOSS_LIMIT`)，名义价值会按照`stopPrice` * `quantity`来计算。
 如果是冰山订单，名义价值会按照`price` * `icebergQty`来计算。
-`applyToMarket`确定 `MIN_NOTIONAL`过滤器是否也将应用于`MARKET`订单。   
-由于`MARKET`订单没有价格，因此会在最后`avgPriceMins`分钟内使用平均价格。   
-`avgPriceMins`是计算平均价格的分钟数。 0表示使用最后的价格。 
+`applyToMarket`确定 `MIN_NOTIONAL`过滤器是否也将应用于`MARKET`订单。
+由于`MARKET`订单没有价格，因此会在最后`avgPriceMins`分钟内使用平均价格。
+`avgPriceMins`是计算平均价格的分钟数。 0表示使用最后的价格。
 
 
 **/exchangeInfo 响应中的格式:**
@@ -154,6 +155,7 @@ MIN_NOTIONAL过滤器定义了交易对订单所允许的最小名义价值(成�
   }
 ```
 
+<a id="market_lot_size"></a>
 ### MARKET_LOT_SIZE 市价订单尺寸
 `MARKET_LOT_SIZE`过滤器为交易对上的`MARKET`订单定义了`数量`(即拍卖中的"手数")规则。 共有3部分：
 
@@ -190,7 +192,7 @@ MIN_NOTIONAL过滤器定义了交易对订单所允许的最小名义价值(成�
 ```
 
 ### MAX_NUM_ALGO_ORDERS 最多条件单数
-`MAX_NUM_ALGO_ORDERS`过滤器定义允许账户在交易对上开设的"algo"订单的最大数量。    
+`MAX_NUM_ALGO_ORDERS`过滤器定义允许账户在交易对上开设的"algo"订单的最大数量。
 "Algo"订单是`STOP_LOSS`，`STOP_LOSS_LIMIT`，`TAKE_PROFIT`和`TAKE_PROFIT_LIMIT`止盈止损单。
 
 **/exchangeInfo 响应中的格式:**
@@ -202,7 +204,7 @@ MIN_NOTIONAL过滤器定义了交易对订单所允许的最小名义价值(成�
 ```
 
 ### MAX_NUM_ICEBERG_ORDERS 最多冰山单数
-`MAX_NUM_ICEBERG_ORDERS`过滤器定义了允许在交易对上开设账户的`ICEBERG`订单的最大数量。     
+`MAX_NUM_ICEBERG_ORDERS`过滤器定义了允许在交易对上开设账户的`ICEBERG`订单的最大数量。
 `ICEBERG`订单是icebergQty大于0的任何订单。
 
 **/exchangeInfo 响应中的格式:**
@@ -235,7 +237,7 @@ MIN_NOTIONAL过滤器定义了交易对订单所允许的最小名义价值(成�
 ### TRAILING_DELTA 过滤器
 
 
-此过滤器定义了参数`trailingDelta`的最大和最小值.
+此过滤器定义了参数[`trailingDelta`](faqs/trailing-stop-faq_CN.md)的最大和最小值.
 
 下追踪止损订单, 需要满足条件:
 
@@ -260,9 +262,38 @@ MIN_NOTIONAL过滤器定义了交易对订单所允许的最小名义价值(成�
    }
 ```
 
+### MAX_NUM_ORDER_AMENDS 过滤器
+
+此过滤器定义了指定交易对的订单修改次数上限。
+
+如果单笔订单的修改次数过多，您将会收到 `-2038` 错误代码。
+
+**/exchangeInfo format:**
+
+```javascript
+        {
+          "filterType": "MAX_NUM_ORDER_AMENDS",
+          "maxNumOrderAmends": 10
+        }
+```
+
+### MAX_NUM_ORDER_LISTS
+
+此过滤器定义了账户在交易对上可持有的最大未平仓订单列表数量。请注意，OTOCO 交易计为一个订单列表。
+
+**/exchangeInfo format:**
+
+```javascript
+{
+          "filterType": "MAX_NUM_ORDER_LISTS",
+          "maxNumOrderLists": 20
+}
+```
+
+
 ## 交易所级别过滤器
 ### EXCHANGE_MAX_NUM_ORDERS 最多订单数
-`EXCHANGE_MAX_NUM_ORDERS`过滤器定义了允许在交易对上开设账户的最大订单数。    
+`EXCHANGE_MAX_NUM_ORDERS`过滤器定义了允许在交易对上开设账户的最大订单数。
 请注意，此过滤器同时计算"algo"订单和常规订单。
 
 **/exchangeInfo 响应中的格式:**
@@ -274,7 +305,7 @@ MIN_NOTIONAL过滤器定义了交易对订单所允许的最小名义价值(成�
 ```
 
 ### EXCHANGE_MAX_NUM_ALGO_ORDERS 最多条件单数
-`EXCHANGE_MAX_ALGO_ORDERS`过滤器定义了允许在交易上开设账户的"algo"订单的最大数量。    
+`EXCHANGE_MAX_ALGO_ORDERS`过滤器定义了允许在交易上开设账户的"algo"订单的最大数量。
 "Algo"订单是`STOP_LOSS`，`STOP_LOSS_LIMIT`，`TAKE_PROFIT`和`TAKE_PROFIT_LIMIT`订单。
 
 **/exchangeInfo 响应中的格式:**
@@ -297,4 +328,39 @@ MIN_NOTIONAL过滤器定义了交易对订单所允许的最小名义价值(成�
   "filterType": "EXCHANGE_MAX_NUM_ICEBERG_ORDERS",
   "maxNumIcebergOrders": 10000
 }
+```
+
+### EXCHANGE_MAX_NUM_ORDER_LISTS
+
+此过滤器定义了允许账号持有的最大未平仓订单列表数量。请注意，OTOCO 交易计为一个订单列表。
+
+**/exchangeInfo format:**
+
+```javascript
+{
+      "filterType": "EXCHANGE_MAX_NUM_ORDER_LISTS",
+      "maxNumOrderLists": 20
+}
+```
+
+
+## 资产过滤器
+### MAX_ASSET
+
+`MAX_ASSET` 过滤器定义了一个账户在单笔订单中可交易的资产最大数量。
+
+* 当资产是交易对的基础资产时，该限制适用于订单的数量。
+* 当资产是交易对的报价资产时，该限制适用于订单的名义价值。
+* 例如，针对 USDC 的 MAX_ASSET 过滤器适用于所有以 USDC 作为基础资产或报价资产的交易对，例如：
+  * USDCBNB
+  * BNBUSDC
+
+**/myFilters format:**
+
+```javascript
+   {
+      "filterType": "MAX_ASSET",
+      "asset": "USDC",
+      "limit": "42.00000000"
+    }
 ```

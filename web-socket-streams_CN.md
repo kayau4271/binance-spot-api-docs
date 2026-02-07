@@ -1,7 +1,5 @@
 
-# Web Socket 行情接口
-
-**最近更新： 2025-01-28**
+# WebSocket 行情接口
 
 ## 基本信息
 * 本篇所列出的所有wss接口的baseurl为: **wss://stream.binance.com:9443** 或者 **wss://stream.binance.com:443**
@@ -11,13 +9,15 @@
 * 订阅组合streams时，事件payload会以这样的格式封装 **{"stream":"\<streamName\>","data":\<rawPayload\>}**
 * stream名称中所有交易对均为**小写**
 * 每个到**stream.binance.com**的链接有效期不超过24小时，请妥善处理断线重连。
-* WebSocket 服务器**每20秒**发送 PING 消息。  
-  * 如果websocket 服务器没有在一分钟之内收到PONG 消息应答，连接会被断开。  
-  * 当客户收到PING消息，必须尽快回复PONG消息，同时payload需要和PING消息一致。  
+* WebSocket 服务器**每20秒**发送 PING 消息。
+  * 如果 WebSocket 服务器没有在一分钟之内收到PONG 消息应答，连接会被断开。
+  * 当客户收到PING消息，必须尽快回复PONG消息，同时payload需要和PING消息一致。
   * 服务器允许未经请求的PONG消息，但这不会保证连接不断开。**对于这些PONG 消息，建议payload为空。**
 * **wss://data-stream.binance.vision** 可以用来订阅仅有市场信息的数据流。账户信息**无法**从此URL获得。
-* 所有时间和时间戳相关字段均以**毫秒为默认单位**。 要以微秒为单位接收信息，请在 URL 中添加参数 `timeUnit=MICROSECOND` 或 `timeUnit=microsecond`。 
+* 所有时间和时间戳相关字段均以**毫秒为默认单位**。 要以微秒为单位接收信息，请在 URL 中添加参数 `timeUnit=MICROSECOND` 或 `timeUnit=microsecond`。
   * 例如： `/stream?streams=btcusdt@trade&timeUnit=MICROSECOND`
+* 如果您的请求包含非 ASCII 字符的交易对名称，那么数据流事件中可能包含以 UTF-8 编码的非 ASCII 字符。
+* [全市场所有 Symbol 的精简 Ticker](web-socket-streams_CN.md#all-markets-mini-ticker) 和 [全市场滚动窗口统计](web-socket-streams_CN.md#all-market-rolling-window-ticker) 事件可能包含以 UTF-8 编码的非 ASCII 字符。
 
 ## WebSocket 连接限制
 
@@ -33,7 +33,7 @@
 
 ## 实时订阅/取消数据流
 
-* 以下数据可以通过websocket发送以实现订阅或取消订阅数据流。示例如下.
+* 以下数据可以通过 WebSocket 发送以实现订阅或取消订阅数据流。示例如下.
 * 请求中的`id`被用作唯一标识来区分来回传递的消息。以下格式被接受:
   * 64位有符号整数
   * 字母数字字符串；最大长度36
@@ -402,22 +402,6 @@ K线stream逐秒推送所请求的K线种类(最新一根K线)的更新。此更
 }
 ```
 
-<a id="all-markets-ticker"></a>
-## 全市场所有交易对的完整Ticker
-同上，只是推送所有交易对
-
-**Stream 名称:** !ticker@arr
-
-**更新速度:** 1000ms
-
-**Payload:**
-```javascript
-[
-  {
-    // 对应每一个交易对的 <symbol>@ticker 内容
-  }
-]
-```
 <a id="bookticker"></a>
 ## 按Symbol的最优挂单信息
 
@@ -597,15 +581,17 @@ K线stream逐秒推送所请求的K线种类(最新一根K线)的更新。此更
 6. 将本地order book设置为快照。它的更新ID 为 `lastUpdateId`。
 7. 更新所有缓存的event，以及后续的所有event。
 
-要将event应用于您的本地order book，请遵循以下更新过程：
-1. 如果event `u` (最后一次更新 ID) < 您本地order book的更新 ID，请忽略该事件。
-2. 如果event `U` (第一次更新 ID) > 您本地order book的更新 ID，则说明出现问题。请丢弃您的本地order book并从头开始开始重建。
-3. 对于买价 (`b`) 和卖价 (`a`) 中的每个价位，在order book中设置新的数量：
-    * 如果order book中不存在价位，则插入新的数量。
+要将一个event应用于您的本地order book，请遵循以下更新过程：
+1. 判断是否需要处理event：
+    * 如果event的最后一次更新ID（`u`）小于本地order book的更新ID，忽略该event。
+    * 如果event的首次更新ID（`U`）大于本地order book的更新ID加1，说明你错过了一些events。<br>请丢弃您的本地order book并从头开始重新同步。
+    * 通常，下一event的`U`等于上一event的`u + 1`。
+1. 对买价（`b`）和卖价（`a`）中的每个价位，设置order book中的新数量：
+    * 如果该价位在order book中不存在，则插入该价位及其数量。
     * 如果数量为零，则从order book中删除此价位。
-4. 将order book更新 ID 设置为处理过event中的最后一次更新 ID (`u`)。
+1. 将order book的更新ID设置为已处理event的最后一次更新ID（`u`）。
 
-> [!NOTE] 
-> 由于从 API 检索的深度快照对价位的数量有限制（每侧最多 5000 个），因此除非它们发生变化，否则您将无法了解初始快照之外的价位数量。<br> 
-> 因此，在使用这些级别的信息时要小心，因为它们可能无法反映订单簿的完整视图。<br> 
+> [!NOTE]
+> 由于从 API 检索的深度快照对价位的数量有限制（每侧最多 5000 个），因此除非它们发生变化，否则您将无法了解初始快照之外的价位数量。<br>
+> 因此，在使用这些级别的信息时要小心，因为它们可能无法反映订单簿的完整视图。<br>
 > 但是，对于大多数场景，可以每侧看到 5000 个价位就足以了解市场并进行有效交易。

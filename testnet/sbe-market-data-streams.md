@@ -8,7 +8,7 @@
 * All symbols in stream names are **lowercase**.
 * You can subscribe to a single stream at **/ws/\<streamName\>**.
 * You can subscribe to multiple streams at **/stream?streams=\<streamName1\>/\<streamName2\>/\<streamName3\>**.
-* A single connection to SBE Market Data Stream is **only valid for 1 hour**; expect to be disconnected after an hour.
+* A single connection to **stream-sbe.testnet.binance.vision** is **only valid for 24 hours**; expect to be disconnected at the 24 hour mark.
 * All time and timestamp fields are in **microseconds**.
 * **An API Key is necessary for access**.
   * Only Ed25519 keys are allowed.
@@ -61,9 +61,9 @@ The best bid and ask price and quantity, pushed in real-time when the order book
 **Update Speed**: Real time
 
 <a id="auto-culling"></a>
-SBE best bid/ask streams use **auto-culling**: when our system is under high load, we may drop outdated events instead of queuing all events and delivering them with a delay.
+SBE best bid/ask streams use **auto-culling**: when the system is under high load, it may drop outdated events instead of queuing all events and delivering them with a delay.
 
-For example, if a best bid/ask event is generated at time T2 when we still have an undelivered event queued at time T1 (where T1 < T2), the event for T1 is dropped, and we will deliver only the event for T2. This is done on a per-symbol basis.
+For example, if a best bid/ask event is generated at time T2 when there is still an undelivered event queued at time T1 (where T1 < T2), the event for T1 is dropped, and the system will deliver only the event for T2. This is done on a per-symbol basis.
 
 ### Diff. Depth Streams
 
@@ -75,7 +75,7 @@ Incremental updates to the order book, pushed at regular intervals. Use this str
 
 **Stream Name**: \<symbol\>@depth
 
-**Update Speed:** 100 ms
+**Update Speed:** 50ms
 
 ### Partial Book Depth Streams
 
@@ -85,4 +85,4 @@ Snapshots of the top 20 levels of the order book, pushed at regular intervals.
 
 **Stream Name**: \<symbol\>@depth20
 
-**Update Speed:** 100ms
+**Update Speed:** 50ms

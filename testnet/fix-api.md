@@ -1,31 +1,110 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [FIX API](#fix-api)
+  - [General API Information](#general-api-information)
+    - [FIX API Order Entry sessions](#fix-api-order-entry-sessions)
+    - [FIX API Drop Copy sessions](#fix-api-drop-copy-sessions)
+    - [FIX API Market Data sessions](#fix-api-market-data-sessions)
+    - [FIX Connection Lifecycle](#fix-connection-lifecycle)
+    - [API Key Permissions](#api-key-permissions)
+    - [On message processing order](#on-message-processing-order)
+    - [Response Mode](#response-mode)
+    - [Timing Security](#timing-security)
+    - [How to sign Logon `<A>` request](#how-to-sign-logon-a-request)
+  - [Limits](#limits)
+    - [Message Limits](#message-limits)
+    - [Connection Limits](#connection-limits)
+    - [Unfilled Order Count](#unfilled-order-count)
+  - [Error Handling](#error-handling)
+  - [Types](#types)
+  - [Message Components](#message-components)
+    - [Header](#header)
+    - [Trailer](#trailer)
+  - [Administrative Messages](#administrative-messages)
+    - [Heartbeat `<0>`](#heartbeat-0)
+    - [TestRequest `<1>`](#testrequest-1)
+    - [Reject `<3>`](#reject-3)
+    - [Logon `<A>`](#logon-a)
+      - [Logon Request](#logon-request)
+      - [Logon Response](#logon-response)
+    - [Logout `<5>`](#logout-5)
+    - [News `<B>`](#news-b)
+    - [Resend Request `<2>`](#resend-request-2)
+  - [Application Messages](#application-messages)
+    - [Order Entry Messages](#order-entry-messages)
+      - [NewOrderSingle `<D>`](#newordersingle-d)
+        - [Supported Order Types](#supported-order-types)
+      - [ExecutionReport `<8>`](#executionreport-8)
+      - [OrderCancelRequest `<F>`](#ordercancelrequest-f)
+      - [OrderCancelReject `<9>`](#ordercancelreject-9)
+      - [OrderCancelRequestAndNewOrderSingle `<XCN>`](#ordercancelrequestandnewordersingle-xcn)
+      - [OrderMassCancelRequest `<q>`](#ordermasscancelrequest-q)
+      - [OrderMassCancelReport `<r>`](#ordermasscancelreport-r)
+      - [NewOrderList `<E>`](#neworderlist-e)
+      - [Supported Order List Types](#supported-order-list-types)
+      - [ListStatus `<N>`](#liststatus-n)
+      - [OrderAmendKeepPriorityRequest `<XAK>`](#orderamendkeeppriorityrequest-xak)
+    - [OrderAmendReject `<XAR>`](#orderamendreject-xar)
+    - [Limit Messages](#limit-messages)
+      - [LimitQuery `<XLQ>`](#limitquery-xlq)
+      - [LimitResponse `<XLR>`](#limitresponse-xlr)
+    - [Market Data Messages](#market-data-messages)
+      - [InstrumentListRequest `<x>`](#instrumentlistrequest-x)
+      - [InstrumentList `<y>`](#instrumentlist-y)
+      - [MarketDataRequest `<V>`](#marketdatarequest-v)
+    - [MarketDataRequestReject `<Y>`](#marketdatarequestreject-y)
+    - [MarketDataSnapshot `<W>`](#marketdatasnapshot-w)
+    - [MarketDataIncrementalRefresh `<X>`](#marketdataincrementalrefresh-x)
+  - [FIX SBE](#fix-sbe)
+    - [SBE](#sbe)
+    - [Endpoints](#endpoints)
+      - [Order Entry](#order-entry)
+      - [Drop Copy](#drop-copy)
+      - [Market data](#market-data)
+    - [FIX SBE encoding layout](#fix-sbe-encoding-layout)
+    - [Logon](#logon)
+      - [Sample FIX SBE `Logon` request message](#sample-fix-sbe-logon-request-message)
+    - [FIX vs. FIX SBE](#fix-vs-fix-sbe)
+    - [Limits](#limits-1)
+    - [Errors](#errors)
+    - [FAQ](#faq)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # FIX API
 
 > [!NOTE]
 > This API can only be used with the SPOT Exchange.
 
-## General Information
+## General API Information
 
-FIX connections require TLS encryption. Please either use native TCP+TLS connection or set up a local proxy such as [stunnel](https://www.stunnel.org/) to handle TLS encryption.
+* FIX connections require TLS encryption. Please either use native TCP+TLS connection or set up a local proxy such as [stunnel](https://www.stunnel.org/) to handle TLS encryption.
+* APIs have a timeout of 10 seconds when processing a request. If a response from the Matching Engine takes longer than this, the API responds with "Timeout waiting for response from backend server. Send status unknown; execution status unknown." [(-1007 TIMEOUT)](errors.md#-1007-timeout)
+  * This does not always mean that the request failed in the Matching Engine.
+  * If the status of the request has not appeared in [User Data Stream](user-data-stream.md), please perform an API query for its status.
+* If your request contains a symbol name containing non-ASCII characters, then the response may contain non-ASCII characters encoded in UTF-8.
 
 **FIX sessions only support Ed25519 keys.** </br>
 You can setup and configure your API key permissions on [Spot Test Network](https://testnet.binance.vision/).
 
-### FIX API order entry sessions
+### FIX API Order Entry sessions
 
-- Endpoint is: `tcp+tls://fix-oe.testnet.binance.vision:9000`
-- Supports placing orders, canceling orders, and querying current limit usage.
-- Supports receiving all of the account's [ExecutionReport`<8>`](#executionreport) and [List Status`<N>`](#liststatus).
-- Only API keys with `FIX_API` are allowed to connect.
-- QuickFIX Schema can be found [here](https://github.com/binance/binance-spot-api-docs/blob/master/fix/schemas/spot-fix-oe.xml).
+* Endpoint is: `tcp+tls://fix-oe.testnet.binance.vision:9000`
+* Supports placing orders, canceling orders, and querying current limit usage.
+* Supports receiving all of the account's [ExecutionReport`<8>`](#executionreport) and [List Status`<N>`](#liststatus).
+* Only API keys with `FIX_API` are allowed to connect.
+* QuickFIX Schema can be found [here](https://github.com/binance/binance-spot-api-docs/blob/master/fix/schemas/spot-fix-oe.xml).
 
 ### FIX API Drop Copy sessions
 
-- Endpoint is: `tcp+tls://fix-dc.testnet.binance.vision:9000`
-- Supports receiving all of the account's [ExecutionReport`<8>`](#executionreport) and [List Status`<N>`](#liststatus).
-- Only API keys with `FIX_API` or `FIX_API_READ_ONLY` are allowed to connect.
-- QuickFIX Schema can be found [here](https://github.com/binance/binance-spot-api-docs/blob/master/fix/schemas/spot-fix-oe.xml).
+* Endpoint is: `tcp+tls://fix-dc.testnet.binance.vision:9000`
+* Supports receiving all of the account's [ExecutionReport`<8>`](#executionreport) and [List Status`<N>`](#liststatus).
+* Only API keys with `FIX_API` or `FIX_API_READ_ONLY` are allowed to connect.
+* QuickFIX Schema can be found [here](https://github.com/binance/binance-spot-api-docs/blob/master/fix/schemas/spot-fix-oe.xml).
+* Data in Drop Copy sessions is delayed by 1 second.
 
-### FIX Market Data sessions
+### FIX API Market Data sessions
 
 * Endpoint is: `tcp+tls://fix-md.testnet.binance.vision:9000`
 * Supports market data streams and active instruments queries.
@@ -37,7 +116,7 @@ You can setup and configure your API key permissions on [Spot Test Network](http
 
 * All FIX API sessions will remain open for as long as possible, on a best-effort basis.
 * There is no minimum connection time guarantee; a server can enter maintenance at any time.
-  * When a server enters maintenance, a [News `<B>`](#news) message will be sent, prompting clients to reconnect. Upon receiving this message, a client is expected to establish a new session and close the old one **within 10 seconds**. If the client does not close the old session within the time frame, the server will proceed to log it out and close the session.
+  * When a server enters maintenance, a [News `<B>`](#news) message will be sent to clients **every 10 seconds for 10 minutes**, prompting clients to reconnect. Upon receiving this message, a client is expected to establish a new session and close the old one. If the client does not close the old session within the time frame, the server will proceed to log it out and close the session.
 * After connecting, the client must send a Logon `<A>` request. For more information please refer to [How to sign a Logon request](#signaturecomputation).
 * The client should send a Logout `<5>` message to close the session before disconnecting. Failure to send the logout message will result in the session’s `SenderCompID (49)` being unusable for new session establishment for a duration of 2x the `HeartInt (108)` interval.
 * The system allows negotiation of the `HeartInt (108)` value during the logon process. Accepted values range between 5 and 60 seconds.
@@ -45,15 +124,28 @@ You can setup and configure your API key permissions on [Spot Test Network](http
   * If the server has not received any messages within a `HeartInt (108)` interval, a [TestRequest `<1>`](#testrequest) will be sent. If the server does not receive a HeartBeat `<0>` containing the expected `TestReqID (112)` from the client within `HeartInt (108)` seconds, the server will send a Logout `<5>` message and close the connection.
   * If the client has not received any messages within a `HeartInt (108)` interval, the client is responsible for sending a TestRequest `<1>` to ensure the connection is healthy. Upon receiving such a TestRequest `<1>`, the server will respond with a Heartbeat `<0>` containing the expected `TestReqID (112)`. If the client does not receive the server’s response within a `HeartInt (108)` interval, the client should close the session and connection and establish new ones.
 
+### API Key Permissions
+
+To access the FIX API order entry sessions, your API key must be configured with the `FIX_API` permission.
+
+To access the FIX Drop Copy sessions, your API key must be configured with either `FIX_API_READ_ONLY` or `FIX_API` permission.
+
+To access the FIX Market Data sessions, your API key must be configured with either `FIX_API` or `FIX_API_READ_ONLY` permission.
+
+**FIX sessions only support Ed25519 keys.**
+
 <a id="orderedmode"></a>
 
 ### On message processing order
 
-The `MessageHandling (25035)` field required in the initial [Logon`<A>`](#logon-request) message controls whether the
-messages may get reordered before they are processed by the engine.
+The `MessageHandling (25035)` field required in the initial [Logon`<A>`](#logon-request) message controls whether messages from the client may be reordered before they are processed by the Matching Engine.
 
-- `UNORDERED(1)` messages from client are allowed to be sent to the engine out of order.
-- `SEQUENTIAL(2)` messages from client are always sent to the engine in the `MsgSeqNum (34)` order.
+| Mode            | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| `UNORDERED(1)`  | Messages from the client are allowed to be sent to the matching engine in any order.       |
+| `SEQUENTIAL(2)` | Messages from the client are always sent to the matching engine in `MsgSeqNum (34)` order. |
+
+In all modes, the client's `MsgSeqNum (34)` must increase monotonically, with each subsequent message having a sequence number that is exactly 1 greater than the previous message.
 
 > [!TIP]
 > `UNORDERED(1)` should offer better performance when there are multiple messages in flight from the client to the server.
@@ -72,9 +164,36 @@ to change this behavior.
 - `EVERYTHING(1)`: The default mode.
 - `ONLY_ACKS(2)`: Receive only ACK messages whether operation succeeded or failed. Disables ExecutionReport push.
 
+<a id="timingsecurity"></a>
+
+### Timing Security
+
+* All requests require a `SendingTime(52)` field which should be the current timestamp.
+* An additional optional field, `RecvWindow(25000)`, specifies for how long the request stays valid in milliseconds.
+  * `RecvWindow(25000)` supports up to three decimal places of precision (e.g., 6000.346) so that microseconds may be specified.
+  * If `RecvWindow(25000)` is not specified, it defaults to 5000 milliseconds only for the Logon`<A>` request. For other requests if unset, the RecvWindow check is not executed.
+  * Maximum `RecvWindow(25000)` is 60000 milliseconds.
+* Request processing logic is as follows:
+
+```javascript
+serverTime = getCurrentTime()
+if (SendingTime < (serverTime + 1 second) && (serverTime - SendingTime) <= RecvWindow) {
+  // begin processing request
+  serverTime = getCurrentTime()
+  if (serverTime - SendingTime) <= RecvWindow {
+    // forward request to Matching Engine
+  } else {
+    // reject request
+  }
+  // finish processing request
+} else {
+  // reject request
+}
+```
+
 <a id="signaturecomputation"></a>
 
-### How to sign Logon<code>&lt;A&gt;</code> request
+### How to sign Logon `<A>` request
 
 The [Logon`<A>`](#logon-main) message authenticates your connection to the FIX API.
 This must be the first message sent by the client.
@@ -176,7 +295,8 @@ Resulting Logon `<A>` message:
   A [LimitResponse`<XLR>`](#limitresponse) message will be sent in response, containing information about Order Rate
   Limits and Message Limits.
 * FIX Order entry sessions have a limit of 10,000 messages every 10 seconds.
-* FIX Market Data sessions have a limit of 10,000 messages every 60 seconds.
+* FIX Drop Copy sessions have a limit of 60 messages every 60 seconds.
+* FIX Market Data sessions have a limit of 2000 messages every 60 seconds.
 
 <a id="connection-limits"></a>
 
@@ -187,9 +307,16 @@ Resulting Logon `<A>` message:
   For example, if the current value of `HeartBtInt` is 5, please wait up to 10 seconds.
 * Upon breaching the limit a [Reject `<3>`](#reject) will be sent containing information about the connection limit
   breach and the current limit.
-* The limit is 5 concurrent TCP connections per account for the order entry sessions.
-* The limit is 10 concurrent TCP connections per account for the Drop Copy sessions.
-* The limit is 100 concurrent TCP connections per account for Market Data sessions.
+* FIX Order Entry limits:
+   * 15 connection attempts within 30 seconds
+   * Maximum of 10 concurrent TCP connections per account
+* FIX Drop Copy limits:
+    * 15 connection attempts within 30 seconds
+    * Maximum of 10 concurrent TCP connections per account
+* FIX Market Data limits
+  * 300 connection attempts within 300 seconds
+  * Maximum of 100 concurrent TCP connections per account
+  * A single connection can listen to a maximum of 1000 streams.
 
 ### Unfilled Order Count
 
@@ -214,18 +341,18 @@ The list of error codes can be found on the [Error codes](errors.md) page.
 
 Only printable ASCII characters and SOH are supported.
 
-| Type           | Description                                                     |
-|----------------|-----------------------------------------------------------------|
-| `BOOLEAN`      | Enum: `Y` or `N`.                                               |
-| `CHAR`         | Single character.                                               |
-| `INT`          | Signed 64-bit integer.                                          |
-| `LENGTH`       | Unsigned 64-bit integer.                                        |
-| `NUMINGROUP`   | Unsigned 64-bit integer.                                        |
-| `PRICE`        | Fixed-point number. Precision depends on the symbol definition. |
-| `QTY`          | Fixed-point number. Precision depends on the symbol definition. |
-| `SEQNUM`       | Unsigned 64-bit integer.                                        |
-| `STRING`       | Sequence of printable ASCII characters.                         |
-| `UTCTIMESTAMP` | String representing datetime in UTC.                            |
+| Type           | Description                                                                                 |
+|----------------|---------------------------------------------------------------------------------------------|
+| `BOOLEAN`      | Enum: `Y` or `N`.                                                                           |
+| `CHAR`         | Single character.                                                                           |
+| `INT`          | Signed 64-bit integer.                                                                      |
+| `LENGTH`       | Unsigned 64-bit integer.                                                                    |
+| `NUMINGROUP`   | Unsigned 64-bit integer.                                                                    |
+| `PRICE`        | Fixed-point number. Precision depends on the symbol definition.                             |
+| `QTY`          | Fixed-point number. Precision depends on the symbol definition.                             |
+| `SEQNUM`       | Unsigned 32-bit integer. Rolls over to 0 after reaching its maximum value of 4,294,967,295. |
+| `STRING`       | Sequence of printable ASCII characters.                                                     |
+| `UTCTIMESTAMP` | String representing datetime in UTC.                                                        |
 
 Supported `UTCTIMESTAMP` formats:
 
@@ -261,12 +388,12 @@ Appears at the start of every message.
 |-------|--------------|--------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 8     | BeginString  | STRING       | Y        | Always `FIX.4.4`. <br></br> Must be the first field the message.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 9     | BodyLength   | LENGTH       | Y        | Message length in bytes. <br></br> Must be the second field in the message.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| 35    | MsgType      | STRING       | Y        | Must be the third field in the message. <br></br> Possible values: <br></br>`0` - [HEARTBEAT](#heartbeat) <br></br>`1` - [TEST_REQUEST](#testrequest) <br></br>`3` - [REJECT](#reject) <br></br>`5` - [LOGOUT](#logout) <br></br>`8` - [EXECUTION_REPORT](#executionreport) <br></br> `9` - [ORDER_CANCEL_REJECT](#ordercancelreject) <br></br> `A` - [LOGON](#logon-main) <br></br> `D` - [NEW_ORDER_SINGLE](#newordersingle) <br></br> `E` - [NEW_ORDER_LIST](#neworderlist) <br></br> `F` - [ORDER_CANCEL_REQUEST](#ordercancelrequest) <br></br> `N` - [LIST_STATUS](#liststatus) <br></br> `q` - [ORDER_MASS_CANCEL_REQUEST](#ordermasscancelrequest) <br></br> `r` - [ORDER_MASS_CANCEL_REPORT](#ordermasscancelreport) <br></br> `XCN` - [ORDER_CANCEL_REQUEST_AND_NEW_ORDER_SINGLE](#ordercancelrequestandnewordersingle) <br></br> `XLQ` - [LIMIT_QUERY](#limitquery) <br></br> `XLR` - [LIMIT_RESPONSE](#limitresponse) <br></br> `B` - [NEWS](#news) <br></br> `x`- [INSTRUMENT_LIST_REQUEST](#instrumentlistrequest) <br></br> `y` - [INSTRUMENT_LIST](#instrumentlist)  <br></br>`V` - [MARKET_DATA_REQUEST](#marketdatarequest) <br></br> `Y` - [MARKET_DATA_REQUEST_REJECT](#marketdatarequestreject) <br></br>`W` - [MARKET_DATA_SNAPSHOT](#marketdatasnapshot) <br></br>`X` - [MARKET_DATA_INCREMENTAL_REFRESH](#marketdataincrementalrefresh) |
+| 35    | MsgType      | STRING       | Y        | Must be the third field in the message. <br></br> Possible values: <br></br>`0` - [HEARTBEAT](#heartbeat) <br></br>`1` - [TEST_REQUEST](#testrequest) <br></br>`3` - [REJECT](#reject) <br></br>`5` - [LOGOUT](#logout) <br></br>`8` - [EXECUTION_REPORT](#executionreport) <br></br> `9` - [ORDER_CANCEL_REJECT](#ordercancelreject) <br></br> `A` - [LOGON](#logon-main) <br></br> `D` - [NEW_ORDER_SINGLE](#newordersingle) <br></br> `E` - [NEW_ORDER_LIST](#neworderlist) <br></br> `F` - [ORDER_CANCEL_REQUEST](#ordercancelrequest) <br></br> `N` - [LIST_STATUS](#liststatus) <br></br> `q` - [ORDER_MASS_CANCEL_REQUEST](#ordermasscancelrequest) <br></br> `r` - [ORDER_MASS_CANCEL_REPORT](#ordermasscancelreport) <br></br> `XCN` - [ORDER_CANCEL_REQUEST_AND_NEW_ORDER_SINGLE](#ordercancelrequestandnewordersingle) <br></br> `XLQ` - [LIMIT_QUERY](#limitquery) <br></br> `XLR` - [LIMIT_RESPONSE](#limitresponse) <br></br> `B` - [NEWS](#news) <br></br> `x`- [INSTRUMENT_LIST_REQUEST](#instrumentlistrequest) <br></br> `y` - [INSTRUMENT_LIST](#instrumentlist)  <br></br>`V` - [MARKET_DATA_REQUEST](#marketdatarequest) <br></br> `Y` - [MARKET_DATA_REQUEST_REJECT](#marketdatarequestreject) <br></br>`W` - [MARKET_DATA_SNAPSHOT](#marketdatasnapshot) <br></br>`X` - [MARKET_DATA_INCREMENTAL_REFRESH](#marketdataincrementalrefresh) <br></br> `XAK` - [ORDER_AMEND_KEEP_PRIORITY_REQUEST](#orderamendkeeppriorityrequest) <br></br> `XAR` - [ORDER_AMEND_REJECT](#orderamendreject) |
 | 49    | SenderCompID | STRING       | Y        | Must be unique across an account's active sessions.  <br></br> Must obey regex: `^[a-zA-Z0-9-_]{1,8}$`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 56    | TargetCompID | STRING       | Y        | A string identifying this TCP connection.<br></br>On messages from client required to be set to `SPOT`. <br></br>Must be unique across TCP connections. <br></br> Must conform to the regex: `^[a-zA-Z0-9-_]{1,8}$`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |                                                                                                                                      |
 | 34    | MsgSeqNum    | SEQNUM       | Y        | Integer message sequence number. <br></br> Values that will cause a gap will be rejected.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| 52    | SendingTime  | UTCTIMESTAMP | Y        | Time of message transmission (always expressed in UTC).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| 25000 | RecvWindow   | INT          | N        | Number of milliseconds after `SendingTime (52)` the request is valid for. <br></br> Defaults to `5000` milliseconds in [Logon`<A>`](#logon-request) and has a max value of `60000` milliseconds.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 52    | SendingTime  | UTCTIMESTAMP | Y        | Time of message transmission (always expressed in UTC). |
+| 25000 | RecvWindow   | FLOAT          | N        | Number of milliseconds after `SendingTime (52)` the request is valid for. <br></br> Defaults to `5000` milliseconds in [Logon`<A>`](#logon-request) and has a max value of `60000` milliseconds. <br> Supports up to three decimal places of precision (e.g., 6000.346) so that microseconds may be specified. |
 
 <a id="trailer"></a>
 
@@ -282,7 +409,7 @@ Appears at the end of every message.
 
 <a id="heartbeat"></a>
 
-### Heartbeat<code>&lt;0&gt;</code>
+### Heartbeat `<0>`
 
 Sent by the server if there is no outgoing traffic during the heartbeat interval (`HeartBtInt (108)` in [Logon`<A>`](#logon-main)).
 
@@ -296,7 +423,7 @@ Sent by the client or the server in response to a [TestRequest`<1>`](#testreques
 
 <a id="testrequest"></a>
 
-### TestRequest<code>&lt;1&gt;</code>
+### TestRequest `<1>`
 
 Sent by the server if there is no incoming traffic during the heartbeat interval (`HeartBtInt (108)` in [Logon`<A>`](#logon-main)).
 
@@ -311,7 +438,7 @@ Sent by the client to request a [Heartbeat`<0>`](#heartbeat) response.
 
 <a id="reject"></a>
 
-### Reject<code>&lt;3&gt;</code>
+### Reject `<3>`
 
 Sent by the server in response to an invalid message that cannot be processed.
 
@@ -331,7 +458,7 @@ Please refer to the `Text (58)` and `ErrorCode (25016)` fields for the reject re
 
 <a id="logon-main"></a>
 
-### Logon<code>&lt;A&gt;</code>
+### Logon `<A>`
 
 Sent by the client to authenticate the connection.
 Logon`<A>` must be the first message sent by the client.
@@ -381,7 +508,7 @@ Sent by the server in response to a successful logon.
 
 <a id="logout"></a>
 
-### Logout<code>&lt;5&gt;</code>
+### Logout `<5>`
 
 Sent to initiate the process of closing the connection, and also when responding to Logout.
 
@@ -405,11 +532,24 @@ Logout Response
 
 <a id="news"></a>
 
-### News <code>&lt;B&gt;</code>
+### News `<B>`
 
-Sent by the server when the connection is about to be closed.
+When the server enters maintenance, a `News` message will be sent to clients **every 10 seconds for 10 minutes**.
+After this period, clients will be logged out and their sessions will be closed.
 
-Upon receiving this message, a client is expected to establish a new session and close the old one **within 10 seconds**. If the client does not close the old session within the time frame, the server will proceed to log it out and close the session.
+Upon receiving this message, clients are expected to establish a new session and close the old one.
+
+
+The countdown message sent will be:
+
+```
+You'll be disconnected in %d seconds. Please reconnect.
+```
+When there are 10 seconds remaining, the following message will be sent:
+```
+Your connection is about to be closed. Please reconnect.
+```
+If the client does not close the old session within 10 seconds of receiving the above message, the server will log it out and close the session.
 
 | Tag | Name | Type | Required | Description |
 | :---- | :---- | :---- | :---- | :---- |
@@ -421,7 +561,7 @@ Upon receiving this message, a client is expected to establish a new session and
 8=FIX.4.4|9=0000113|35=B|49=SPOT|56=OE|34=4|52=20240924-21:07:35.773537|148=Your connection is about to be closed. Please reconnect.|10=165|
 ```
 
-### Resend Request <code>&lt;2&gt;</code>
+### Resend Request `<2>`
 
 Resend requests are currently not supported.
 
@@ -434,9 +574,13 @@ Resend requests are currently not supported.
 
 <a id="newordersingle"></a>
 
-#### NewOrderSingle<code>&lt;D&gt;</code>
+#### NewOrderSingle `<D>`
 
 Sent by the client to submit a new order for execution.
+
+This adds 1 order to the `EXCHANGE_MAX_ORDERS` filter and the `MAX_NUM_ORDERS` filter.
+
+**Unfilled Order Count:** 1
 
 Please refer to [Supported Order Types](#ordertype) for supported field combinations.
 
@@ -448,7 +592,7 @@ Please refer to [Supported Order Types](#ordertype) for supported field combinat
 |-------|--------------------------|---------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 11    | ClOrdID                  | STRING  | Y        | `ClOrdID` to be assigned to the order.                                                                                                                                                                                                                                                                                       |
 | 38    | OrderQty                 | QTY     | N        | Quantity of the order                                                                                                                                                                                                                                                                                                        |
-| 40    | OrdType                  | CHAR    | Y        | See the [table](#ordertype) to understand supported order types and the required fields to use them.<br></br>Possible values: <br></br> `1` - MARKET <br></br> `2` - LIMIT <br></br> `3` - STOP <br></br> `4` - STOP_LIMIT                                                                                        |
+| 40    | OrdType                  | CHAR    | Y        | See the [table](#ordertype) to understand supported order types and the required fields to use them.<br></br>Possible values: <br></br> `1` - MARKET <br></br> `2` - LIMIT <br></br> `3` - STOP <br></br> `4` - STOP_LIMIT  <br></br> `P`- PEGGED                                                                                     |
 | 18    | ExecInst                 | CHAR    | N        | Possible values: <br></br> `6` - PARTICIPATE_DONT_INITIATE                                                                                                                                                                                                                                                                        |
 | 44    | Price                    | PRICE   | N        | Price of the order                                                                                                                                                                                                                                                                                                           |
 | 54    | Side                     | CHAR    | Y        | Side of the order.<br></br>Possible values: <br></br> `1` - BUY <br></br> `2` - SELL                                                                                                                                                                                                                                                        |
@@ -458,7 +602,11 @@ Please refer to [Supported Order Types](#ordertype) for supported field combinat
 | 152   | CashOrderQty             | QTY     | N        | Quantity of the order specified in the quote asset units, for reverse market orders.                                                                                                                                                                                                                                         |
 | 847   | TargetStrategy           | INT     | N        | The value cannot be less than `1000000`.                                                                                                                                                                                                                                                                                                                             |
 | 7940  | StrategyID               | INT     | N        |                                                                                                                                                                                                                                                                                      |
-| 25001 | SelfTradePreventionMode  | CHAR    | N        | Possible values: <br></br> `1` - NONE <br></br> `2` - EXPIRE_TAKER <br></br> `3` - EXPIRE_MAKER <br></br> `4` - EXPIRE_BOTH                                                                                                                                                                                                                      |
+| 25001 | SelfTradePreventionMode  | CHAR    | N        | Possible values: <br></br> `1` - NONE <br></br> `2` - EXPIRE_TAKER <br></br> `3` - EXPIRE_MAKER <br></br> `4` - EXPIRE_BOTH <br></br> `5` - DECREMENT  <br> `6` - TRANSFER                                                                                                                                                                                                                    |
+|211 | PegOffsetValue | FLOAT | N | Amount added to the peg in the context of the PegOffsetType |
+|1094 | PegPriceType | CHAR | N | Defines the type of peg <br> Possible values: <br> `4` - MARKET_PEG <br> `5` - PRIMARY_PEG|
+|835 | PegMoveType | CHAR | N | Describes whether peg is fixed or floats. Required for Pegged Orders and must be set to `1` (FIXED) |
+|836 | PegOffsetType | CHAR | N | Type of price peg offset. <br> Possible values: <br></br> `3`  - PRICE_TIER|
 | 1100  | TriggerType              | CHAR    | N        | Possible values: `4` - PRICE_MOVEMENT                                                                                                                                                                                                                                                                                        |
 | 1101  | TriggerAction            | CHAR    | N        | Possible values: <br></br> `1` - ACTIVATE                                                                                                                                                                                                                                                                                         |
 | 1102  | TriggerPrice             | PRICE   | N        | Activation price for contingent orders. See [table](#ordertype)                                                                                                                                                                                                                                                              |
@@ -525,7 +673,7 @@ Required fields based on Binance OrderType:
 
 <a id="executionreport"></a>
 
-#### ExecutionReport<code>&lt;8&gt;</code>
+#### ExecutionReport `<8>`
 
 Sent by the server whenever an order state changes.
 
@@ -540,7 +688,7 @@ Sent by the server whenever an order state changes.
 | 41    | OrigClOrdID              | STRING       | N        | Original `ClOrdID` of the order.                                                                                                                                                                                                                                                                                             |
 | 37    | OrderID                  | INT          | N        | Assigned by exchange.                                                                                                                                                                                                                                                                                                        |
 | 38    | OrderQty                 | QTY          | N        | Quantity of the order.                                                                                                                                                                                                                                                                                                       |
-| 40    | OrdType                  | CHAR         | Y        | Possible values: <br></br> `1` - MARKET <br></br> `2` - LIMIT <br></br> `3` - STOP_LOSS <br></br> `4` - STOP_LIMIT                                                                                                                                                                                                                               |
+| 40    | OrdType                  | CHAR         | Y        | Possible values: <br></br> `1` - MARKET <br></br> `2` - LIMIT <br></br> `3` - STOP_LOSS <br></br> `4` - STOP_LIMIT <br></br> `P` - PEGGED                                                                                                                                                                                                                               |
 | 54    | Side                     | CHAR         | Y        | Possible values: <br></br> `1` - BUY <br></br> `2` - SELL                                                                                                                                                                                                                                                                              |
 | 55    | Symbol                   | STRING       | Y        | Symbol of the order.                                                                                                                                                                                                                                                                                                         |
 | 18    | ExecInst                 | CHAR         | N        | Possible values: <br></br> `6` - PARTICIPATE_DONT_INITIATE                                                                                                                                                                                                                                                                        |
@@ -553,7 +701,7 @@ Sent by the server whenever an order state changes.
 | 152   | CashOrderQty             | QTY          | N        | OrderQty specified in the quote asset units.                                                                                                                                                                                                                                                                                 |
 | 847   | TargetStrategy           | INT          | N        | `TargetStrategy (847)` from the order placement request.                                                                                                                                                                                                                                                                     |
 | 7940  | StrategyID               | INT          | N        | `StrategyID (7940)` from the order placement request.                                                                                                                                                                                                                                                                        |
-| 25001 | SelfTradePreventionMode  | CHAR         | N        | Possible values: <br></br> `1` - NONE <br></br> `2` - EXPIRE_TAKER <br></br> `3` - EXPIRE_MAKER <br></br>`4` - EXPIRE_BOTH                                                                                                                                                                                                                       |
+| 25001 | SelfTradePreventionMode  | CHAR         | N        | Possible values: <br></br> `1` - NONE <br></br> `2` - EXPIRE_TAKER <br></br> `3` - EXPIRE_MAKER <br></br>`4` - EXPIRE_BOTH  <br></br> `5` - DECREMENT  <br> `6` - TRANSFER                                                                                                                                                                                                                    |
 | 150   | ExecType                 | CHAR         | Y        | **Note:** Field `PreventedMatchID(25024)` will be present if order has expired due to `SelfTradePreventionMode(25013)` <br></br> Possible values: <br></br> `0` - NEW <br></br> `4` - CANCELED <br></br> `5` - REPLACED <br></br> `8` - REJECTED <br></br> `F` - TRADE <br></br>`C` - EXPIRED                                                                   |
 | 14    | CumQty                   | QTY          | Y        | Total number of base asset traded on this order.                                                                                                                                                                                                                                                                            |
 | 151   | LeavesQty                | QTY          | N        | Quantity remaining for further execution.                                                                                                                                                                                                                                                                                    |
@@ -589,7 +737,12 @@ Sent by the server whenever an order state changes.
 | 1102  | TriggerPrice             | PRICE        | N        | Activation price for contingent orders. See [table](#ordertype)                                                                                                                                                                                                                                                              |
 | 1107  | TriggerPriceType         | CHAR         | N        | Possible values: <br></br> `2` - LAST_TRADE                                                                                                                                                                                                                                                                                       |
 | 1109  | TriggerPriceDirection    | CHAR         | N        | Used to differentiate between StopLoss and TakeProfit orders. See [table](#ordertype).<br></br>Possible values: <br></br> `U` - TRIGGER_IF_THE_PRICE_OF_THE_SPECIFIED_TYPE_GOES_UP_TO_OR_THROUGH_THE_SPECIFIED_TRIGGER_PRICE <br></br> `D` - TRIGGER_IF_THE_PRICE_OF_THE_SPECIFIED_TYPE_GOES_DOWN_TO_OR_THROUGH_THE_SPECIFIED_TRIGGER_PRICE |
-| 25009 | TriggerTrailingDeltaBips | INT          | N        | Appears only for trailing stop orders.                                                                                                                                                                                                                                                                                       |
+| 25009 | TriggerTrailingDeltaBips | INT          | N        | Appears only for trailing stop orders. |
+| 211 | PegOffsetValue | FLOAT | N | Amount added to the peg in the context of the PegOffsetType |
+|1094 | PegPriceType | CHAR | N | Defines the type of peg <br> Possible values: <br> `4` - MARKET_PEG <br> `5` - PRIMARY_PEG|
+|835 | PegMoveType | CHAR | N | Describes whether peg is fixed or floats. Required for Pegged Orders and must be set to `1` (FIXED) |
+|836 | PegOffsetType | CHAR | N | Type of price peg offset. <br> Possible values: <br></br> `3`  - PRICE_TIER|
+|839 | PeggedPrice  | PRICE  | N |  Current price the order is pegged at|
 
 **Sample message:**
 
@@ -599,14 +752,20 @@ Sent by the server whenever an order state changes.
 
 <a id="ordercancelrequest"></a>
 
-#### OrderCancelRequest<code>&lt;F&gt;</code>
+#### OrderCancelRequest `<F>`
 
 Sent by the client to cancel an order or an order list.
 
 * To cancel an order either `OrderID (11)` or `OrigClOrdID (41)` are required.
+  * If both `OrderID (37)` and `OrigClOrdID (41)` are provided, the `OrderID` is searched first, then the `OrigClOrdID` from that result is checked against that order. If both conditions are not met the request will be rejected.
 * To cancel an order list either `ListID (66)` or `OrigClListID (25015)` are required.
+  * If both `ListID (66)` and `OrigClListID (25015)` are provided, the `ListID` is searched first, then the `OrigClListID` from that result is checked against that order. If both conditions are not met the request will be rejected.
 
 If the canceled order is part of an order list, the entire list will be canceled.
+
+**Note:**
+
+* The performance for canceling an order (single cancel or as part of a cancel-replace) is always better when only `orderId` is sent. Sending `origClientOrderId` or both `orderId` + `origClientOrderId` will be slower.
 
 | Tag   | Name               | Type   | Required | Description                                                                                       |
 |-------|--------------------|--------|----------|---------------------------------------------------------------------------------------------------|
@@ -633,7 +792,7 @@ If the canceled order is part of an order list, the entire list will be canceled
 
 <a id="ordercancelreject"></a>
 
-#### OrderCancelReject<code>&lt;9&gt;</code>
+#### OrderCancelReject `<9>`
 
 Sent by the server when [OrderCancelRequest`<F>`](#ordercancelrequest) has failed.
 
@@ -658,9 +817,17 @@ Sent by the server when [OrderCancelRequest`<F>`](#ordercancelrequest) has faile
 
 <a id="ordercancelrequestandnewordersingle"></a>
 
-#### OrderCancelRequestAndNewOrderSingle<code>&lt;XCN&gt;</code>
+#### OrderCancelRequestAndNewOrderSingle `<XCN>`
 
 Sent by the client to cancel an order and submit a new one for execution.
+* To cancel an order either `OrderID (11)` or `OrigClOrdId (41)` are required.
+* If both `OrderID (37)` and `OrigClOrdID (41)` are provided, the `OrderID` is searched first, then the `OrigClOrdID` from that result is checked against that order. If both conditions are not met the request will be rejected.
+
+Filters and Order Count are evaluated before the processing of the cancellation and order placement occurs.
+
+A new order that was not attempted (i.e. when `newOrderResult: NOT_ATTEMPTED`), will still increase the unfilled order count by 1.
+
+**Unfilled Order Count:** 1
 
 Please refer to [Supported Order Types](#ordertype) for supported field combinations when describing the new order.
 
@@ -677,7 +844,7 @@ Please refer to [Supported Order Types](#ordertype) for supported field combinat
 | 11    | ClOrdID                                 | STRING | Y        | `ClOrdID` to be assigned to the new order.                                                                                                                                                                                                                                                                                   |
 | 25002 | CancelRestrictions                      | INT    | N        | Restrictions on the cancel. Possible values: <br></br> `1` - ONLY_NEW <br></br> `2` - ONLY_PARTIALLY_FILLED                                                                                                                                                                                                                            |
 | 38    | OrderQty                                | QTY    | N        | Quantity of the new order                                                                                                                                                                                                                                                                                                    |
-| 40    | OrdType                                 | CHAR   | Y        | See the [table](#ordertype) to understand supported order types and the required fields to use them.<br></br>Possible values: <br></br> `1` - MARKET <br></br> `2` - LIMIT <br></br> `3` - STOP <br></br> `4` - STOP_LIMIT                                                                                        |
+| 40    | OrdType                                 | CHAR   | Y        | See the [table](#ordertype) to understand supported order types and the required fields to use them.<br></br>Possible values: <br></br> `1` - MARKET <br></br> `2` - LIMIT <br></br> `3` - STOP <br></br> `4` - STOP_LIMIT <br></br> `P` - PEGGED                                                                                      |
 | 18    | ExecInst                                | CHAR   | N        | Possible values: <br></br> `6` - PARTICIPATE_DONT_INITIATE                                                                                                                                                                                                                                                                        |
 | 44    | Price                                   | PRICE  | N        | Price of the new order                                                                                                                                                                                                                                                                                                       |
 | 54    | Side                                    | CHAR   | Y        | Side of the order.<br></br>Possible values: <br></br> `1` - BUY <br></br> `2` - SELL                                                                                                                                                                                                                                                        |
@@ -687,13 +854,18 @@ Please refer to [Supported Order Types](#ordertype) for supported field combinat
 | 152   | CashOrderQty                            | QTY    | N        | Quantity of the order specified in the quote asset units, for reverse market orders.                                                                                                                                                                                                                                         |
 | 847   | TargetStrategy                          | INT    | N        | The value cannot be less than `1000000`.                                                                                                                                                                                                                                                                                                                             |
 | 7940  | StrategyID                              | INT    | N        |                                                                                                                                                                                                                                                                                      |
-| 25001 | SelfTradePreventionMode                 | CHAR   | N        | Possible values: <br></br> `1` - NONE <br></br> `2` - EXPIRE_TAKER <br></br> `3` - EXPIRE_MAKER <br></br> `4` - EXPIRE_BOTH                                                                                                                                                                                                                      |
+| 25001 | SelfTradePreventionMode                 | CHAR   | N        | Possible values: <br></br> `1` - NONE <br></br> `2` - EXPIRE_TAKER <br></br> `3` - EXPIRE_MAKER <br></br> `4` - EXPIRE_BOTH <br></br> `5` - DECREMENT  <br> `6` - TRANSFER                                                                                                                                                                                                                   |
+|211 | PegOffsetValue | FLOAT | N | Amount added to the peg in the context of the PegOffsetType |
+|1094 | PegPriceType | CHAR | N | Defines the type of peg <br> Possible values: <br> `4` - MARKET_PEG <br> `5` - PRIMARY_PEG|
+|835 | PegMoveType | CHAR | N | Describes whether peg is fixed or floats. Required for Pegged Orders and must be set to `1` (FIXED) |
+|836 | PegOffsetType | CHAR | N | Type of price peg offset. <br> Possible values: <br></br> `3`  - PRICE_TIER|
 | 1100  | TriggerType                             | CHAR   | N        | Possible values: `4` - PRICE_MOVEMENT                                                                                                                                                                                                                                                                                        |
 | 1101  | TriggerAction                           | CHAR   | N        | Possible values: <br></br> `1` - ACTIVATE                                                                                                                                                                                                                                                                                         |
 | 1102  | TriggerPrice                            | PRICE  | N        | Activation price for contingent orders. See [table](#ordertype)                                                                                                                                                                                                                                                              |
 | 1107  | TriggerPriceType                        | CHAR   | N        | Possible values: <br></br> `2` - LAST_TRADE                                                                                                                                                                                                                                                                                       |
 | 1109  | TriggerPriceDirection                   | CHAR   | N        | Used to differentiate between StopLoss and TakeProfit orders. See [table](#ordertype).<br></br>Possible values: <br></br> `U` - TRIGGER_IF_THE_PRICE_OF_THE_SPECIFIED_TYPE_GOES_UP_TO_OR_THROUGH_THE_SPECIFIED_TRIGGER_PRICE <br></br> `D` - TRIGGER_IF_THE_PRICE_OF_THE_SPECIFIED_TYPE_GOES_DOWN_TO_OR_THROUGH_THE_SPECIFIED_TRIGGER_PRICE |
-| 25009 | TriggerTrailingDeltaBips                | INT    | N        | Provide to create trailing orders.                                                                                                                                                                                                                                                                                           |
+| 25009 | TriggerTrailingDeltaBips                | INT    | N        | Provide to create trailing orders.   |
+
 
 **Sample message:**
 
@@ -711,7 +883,7 @@ Please refer to [Supported Order Types](#ordertype) for supported field combinat
 
 <a id="ordermasscancelrequest"></a>
 
-#### OrderMassCancelRequest<code>&lt;q&gt;</code>
+#### OrderMassCancelRequest `<q>`
 
 Sent by the client to cancel all open orders on a symbol.
 
@@ -727,7 +899,7 @@ Sent by the client to cancel all open orders on a symbol.
 **Sample message:**
 
 ```
-8=FIX.4.4|9=94|35=q|34=2|49=dpYPesqv|52=20240613-01:24:36.948|56=SPOT|11=1718241876901971671|55=ABCDEF|530=1|10=110|
+8=FIX.4.4|9=95|35=q|34=2|49=dpYPesqv|52=20240613-01:24:36.948|56=SPOT|11=1718241876901971671|55=BTCUSDT|530=1|10=243|
 ```
 
 **Responses:**
@@ -738,7 +910,7 @@ Sent by the client to cancel all open orders on a symbol.
 
 <a id="ordermasscancelreport"></a>
 
-#### OrderMassCancelReport<code>&lt;r&gt;</code>
+#### OrderMassCancelReport `<r>`
 
 Sent by the server in response to [OrderMassCancelRequest`<q>`](#ordermasscancelrequest).
 
@@ -761,9 +933,17 @@ Sent by the server in response to [OrderMassCancelRequest`<q>`](#ordermasscancel
 
 <a id="neworderlist"></a>
 
-#### NewOrderList<code>&lt;E&gt;</code>
+#### NewOrderList `<E>`
 
 Sent by the client to submit a list of orders for execution.
+
+* OCOs or OTOs add **2 orders** to the `EXCHANGE_MAX_ORDERS` filter and the `MAX_NUM_ORDERS` filter.
+* OTOCOs add **3 orders** to the `EXCHANGE_MAX_NUM_ORDERS` filter and `MAX_NUM_ORDERS` filter.
+
+**Unfilled Order Count:**
+* OCO: 2
+* OTO: 2
+* OTOCO: 3
 
 Orders in an order list are contingent on one another.
 Please refer to [Supported Order List Types](#order-list-types) for supported order types and triggering instructions.
@@ -771,11 +951,12 @@ Please refer to [Supported Order List Types](#order-list-types) for supported or
 | Tag      | Name                         | Type       | Required | Description                                                                                                                                                                                                                                                                                                                  |
 |----------|------------------------------|------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 25014    | ClListID                     | STRING     | Y        | `ClListID` to be assigned to the order list.                                                                                                                                                                                                                                                                                 |
-| 1385     | ContingencyType              | INT        | N        | Possible values: <br></br> `1` - ONE_CANCELS_THE_OTHER <br></br> `2` - ONE_TRIGGERS_THE_OTHER                                                                                                                                                                                                                                          |
+| 1385     | ContingencyType              | INT        | N        | Possible values: <br></br> `1` - ONE_CANCELS_THE_OTHER <br></br> `2` - ONE_TRIGGERS_THE_OTHER   |
+| 25046    | OPO                          | BOOLEAN    | N        | Sets this order list as an [OPO](../faqs/opo.md) when set to `true`. |
 | 73       | NoOrders                     | NUMINGROUP | N        | The length of the array for Orders. Only 2 or 3 are allowed.             |
 | =>11     | ClOrdID                      | STRING     | Y        | `ClOrdID` to be assigned to the order                                                                                                                                                                                                                                                                                        |
 | =>38     | OrderQty                     | QTY        | N        | Quantity of the order                                                                                                                                                                                                                                                                                                        |
-| =>40     | OrdType                      | CHAR       | Y        | See the [table](#ordertype) to understand supported order types and the required fields to use them.<br></br>Possible values: <br></br> `1` - MARKET <br></br> `2` - LIMIT <br></br> `3` - STOP <br></br> `4` - STOP_LIMIT                                                                                        |
+| =>40     | OrdType                      | CHAR       | Y        | See the [table](#ordertype) to understand supported order types and the required fields to use them.<br></br>Possible values: <br></br> `1` - MARKET <br></br> `2` - LIMIT <br></br> `3` - STOP <br></br> `4` - STOP_LIMIT  <br></br> `P`- PEGGED                                                                                       |
 | =>18     | ExecInst                     | CHAR       | N        | Possible values: <br></br> `6` - PARTICIPATE_DONT_INITIATE                                                                                                                                                                                                                                                                        |
 | =>44     | Price                        | PRICE      | N        | Price of the order                                                                                                                                                                                                                                                                                                           |
 | =>54     | Side                         | CHAR       | Y        | Side of the order. Possible values: <br></br> `1` - BUY <br></br> `2` - SELL                                                                                                                                                                                                                                                           |
@@ -785,7 +966,11 @@ Please refer to [Supported Order List Types](#order-list-types) for supported or
 | =>152    | CashOrderQty                 | QTY        | N        | Quantity of the order specified in the quote asset units, for reverse market orders.                                                                                                                                                                                                                                         |
 | =>847    | TargetStrategy               | INT        | N        | The value cannot be less than `1000000`.                                                                                                                                                                                                                                                                                                                             |
 | =>7940   | StrategyID                   | INT        | N        |                                                                                                                                                                                                                                                                                      |
-| =>25001  | SelfTradePreventionMode      | CHAR       | N        | Possible values: <br></br> `1` - NONE <br></br>`2` - EXPIRE_TAKER <br></br> `3` - EXPIRE_MAKER <br></br> `4` - EXPIRE_BOTH                                                                                                                                                                                                                       |
+| =>25001  | SelfTradePreventionMode      | CHAR       | N        | Possible values: <br></br> `1` - NONE <br></br>`2` - EXPIRE_TAKER <br></br> `3` - EXPIRE_MAKER <br></br> `4` - EXPIRE_BOTH <br></br> `5` - DECREMENT  <br> `6` - TRANSFER                                                                                                                                                                                                                |
+|=> 211 | PegOffsetValue | FLOAT | N | Amount added to the peg in the context of the PegOffsetType |
+|=>1094 | PegPriceType | CHAR | N | Defines the type of peg <br> Possible values: <br> `4` - MARKET_PEG <br> `5` - PRIMARY_PEG|
+|=>835 | PegMoveType | CHAR | N | Describes whether peg is fixed or floats. Required for Pegged Orders and must be set to `1` (FIXED) |
+|=>836 | PegOffsetType | CHAR | N | Type of price peg offset. <br> Possible values: <br></br> `3`  - PRICE_TIER|
 | =>1100   | TriggerType                  | CHAR       | N        | Possible values: <br></br> `4` - PRICE_MOVEMENT                                                                                                                                                                                                                                                                                   |
 | =>1101   | TriggerAction                | CHAR       | N        | Possible values: <br></br> `1` - ACTIVATE                                                                                                                                                                                                                                                                                         |
 | =>1102   | TriggerPrice                 | PRICE      | N        | Activation price for contingent orders. See [table](#ordertype)                                                                                                                                                                                                                                                              |
@@ -795,7 +980,7 @@ Please refer to [Supported Order List Types](#order-list-types) for supported or
 | =>25010  | NoListTriggeringInstructions | NUMINGROUP | N        | The length of the array for ListTriggeringInstructions.       |
 | ==>25011 | ListTriggerType              | CHAR       | N        | What needs to happen to the order pointed to by ListTriggerTriggerIndex in order for the action to take place. <br></br> Possible values: <br></br> `1` - ACTIVATED <br></br> `2` - PARTIALLY_FILLED <br></br> `3` - FILLED                                                                                                                      |
 | ==>25012 | ListTriggerTriggerIndex      | INT        | N        | Index of the trigger order: 0-indexed.                                                                                                                                                                                                                                                                                       |
-| ==>25013 | ListTriggerAction            | CHAR       | N        | Action to take place on this order after the ListTriggerType has been fulfilled. <br></br> Possible values: <br></br> `1` - RELEASE <br></br> `2` - CANCEL                                                                                                                                                                                  |
+| ==>25013 | ListTriggerAction            | CHAR       | N        | Action to take place on this order after the ListTriggerType has been fulfilled. <br></br> Possible values: <br></br> `1` - RELEASE <br></br> `2` - CANCEL|                                                                     |
 
 **Sample message:**
 
@@ -821,11 +1006,13 @@ Please refer to [Supported Order List Types](#order-list-types) for supported or
 | OTOCO           | `2`                     | 1. working order<br></br><br></br> 2. pending below order<br></br><br></br> 3. pending above order | 1. working order=`SELL` or `BUY`<br></br><br></br> 2. pending below order=`BUY`<br></br><br></br>  3. pending above order=`BUY`  | 1. working order=`LIMIT` or `LIMIT_MAKER`      <br></br><br></br> 2. pending below order=`LIMIT_MAKER`                   <br></br><br></br> 3. pending above order=`STOP_LOSS` or `STOP_LOSS_LIMIT` | 1. working order:<br></br>NONE<br></br><br></br>                                                             2. pending below order:<br></br><code>25010=2&#124;25011=3&#124;25012=0&#124;25013=2&#124;25011=1&#124;25012=2&#124;25013=2&#124;</code><br></br><br></br>3. pending above order:<br></br><code>25010=2&#124;25011=3&#124;25012=0&#124;25013=2&#124;25011=2&#124;25012=1&#124;25013=2&#124;</code> |
 | OTOCO           | `2`                     | 1. working order<br></br><br></br> 2. pending below order<br></br><br></br> 3. pending above order | 1. working order=`SELL` or `BUY`<br></br><br></br> 2. pending below order=`SELL`<br></br><br></br> 3. pending above order=`SELL` | 1. working order=`LIMIT` or `LIMIT_MAKER`      <br></br><br></br> 2. pending below order=`STOP_LOSS` or `STOP_LOSS_LIMIT`<br></br><br></br> 3. pending above order=`TAKE_PROFIT`                    | 1. working order:<br></br>NONE<br></br><br></br>                                                             2. pending below order:<br></br><code>25010=2&#124;25011=3&#124;25012=0&#124;25013=2&#124;25011=1&#124;25012=2&#124;25013=2&#124;</code><br></br><br></br>3. pending above order:<br></br><code>25010=2&#124;25011=3&#124;25012=0&#124;25013=2&#124;25011=1&#124;25012=1&#124;25013=2&#124;</code> |
 | OTOCO           | `2`                     | 1. working order<br></br><br></br> 2. pending below order<br></br><br></br> 3. pending above order | 1. working order=`SELL` or `BUY`<br></br><br></br> 2. pending below order=`BUY`<br></br><br></br>  3. pending above order=`BUY`  | 1. working order=`LIMIT` or `LIMIT_MAKER`      <br></br><br></br> 2. pending below order=`TAKE_PROFIT`                   <br></br><br></br> 3. pending above order=`STOP_LOSS` or `STOP_LOSS_LIMIT` | 1. working order:<br></br>NONE<br></br><br></br>                                                             2. pending below order:<br></br><code>25010=2&#124;25011=3&#124;25012=0&#124;25013=2&#124;25011=1&#124;25012=2&#124;25013=2&#124;</code><br></br><br></br>3. pending above order:<br></br><code>25010=2&#124;25011=3&#124;25012=0&#124;25013=2&#124;25011=1&#124;25012=1&#124;25013=2&#124;</code> |
-
+| OPO             | `2`                     | 1. working order<br></br><br></br> 2. pending order                                                | 1. working order=`BUY`<br></br><br></br> 2. pending order=`SELL`                                            | 1. working order=`LIMIT` or `LIMIT_MAKER`      <br></br><br></br> 2. pending order=ANY                                                                                                              | 1. working order:<br></br>NONE<br></br><br></br>                                                             2. pending order:      <br></br><code>25010=1&#124;25011=3&#124;25012=0&#124;25013=1&#124;</code>
+| OPOCO           | `2`                     | 1. working order<br></br><br></br> 2. pending below order<br></br><br></br> 3. pending above order | 1. working order=`BUY`<br></br><br></br> 2. pending below order=`SELL`<br></br><br></br> 3. pending above order=`SELL` | 1. working order=`LIMIT` or `LIMIT_MAKER`      <br></br><br></br> 2. pending below order=`STOP_LOSS` or `STOP_LOSS_LIMIT`<br></br><br></br> 3. pending above order=`LIMIT_MAKER`                    | 1. working order:<br></br>NONE<br></br><br></br>                                                             2. pending below order:<br></br><code>25010=2&#124;25011=3&#124;25012=0&#124;25013=2&#124;25011=2&#124;25012=2&#124;25013=2&#124;</code><br></br><br></br>3. pending above order:<br></br><code>25010=2&#124;25011=3&#124;25012=0&#124;25013=2&#124;25011=1&#124;25012=1&#124;25013=2&#124;</code> |
+| OPOCO           | `2`                     | 1. working order<br></br><br></br> 2. pending below order<br></br><br></br> 3. pending above order | 1. working order=`BUY`<br><br> 2. pending below order=`SELL`<br></br><br></br> 3. pending above order=`SELL` | 1. working order=`LIMIT` or `LIMIT_MAKER`      <br></br><br></br> 2. pending below order=`STOP_LOSS` or `STOP_LOSS_LIMIT`<br></br><br></br> 3. pending above order=`TAKE_PROFIT` or `TAKE_PROFIT_LIMIT`  | 1. working order:<br></br>NONE<br></br><br></br>                                                             2. pending below order:<br></br><code>25010=2&#124;25011=3&#124;25012=0&#124;25013=2&#124;25011=1&#124;25012=2&#124;25013=2&#124;</code><br></br><br></br>3. pending above order:<br></br><code>25010=2&#124;25011=3&#124;25012=0&#124;25013=2&#124;25011=1&#124;25012=1&#124;25013=2&#124;</code> |
 
 <a id="liststatus"></a>
 
-#### ListStatus<code>&lt;N&gt;</code>
+#### ListStatus `<N>`
 
 Sent by the server whenever an order list state changes.
 
@@ -835,12 +1022,12 @@ Sent by the server whenever an order list state changes.
 
 | Tag      | Name                         | Type         | Required | Description                                                                                                                                             |
 |----------|------------------------------|--------------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 55       | Symbol                       | STRING       | Y        | Symbol of the order list.                                                                                                                               |
+| 55       | Symbol                       | STRING       | N        | Symbol of the order list.                                                                                                                               |
 | 66       | ListID                       | STRING       | N        | `ListID` of the list as assigned by the exchange.                                                                                                       |
 | 25014    | ClListID                     | STRING       | N        | `ClListID` of the list as assigned on the request.                                                                                                      |
 | 25015    | OrigClListID                 | STRING       | N        |                                                                                                                                                         |
 | 1385     | ContingencyType              | INT          | N        | Possible values: <br></br> `1` - ONE_CANCELS_THE_OTHER <br></br> `2` - ONE_TRIGGERS_THE_OTHER                                                                     |
-| 429      | ListStatusType               | INT          | Y        | Possible values: <br></br> `2` - RESPONSE <br></br>`4` - EXEC_STARTED <br></br> `5` - ALL_DONE                                                                         |
+| 429      | ListStatusType               | INT          | Y        | Possible values: <br></br> `2` - RESPONSE <br></br>`4` - EXEC_STARTED <br></br> `5` - ALL_DONE <br></br> `100` - UPDATED                                                                        |
 | 431      | ListOrderStatus              | INT          | Y        | Possible values: <br></br> `3` - EXECUTING <br></br> `6` - ALL_DONE  <br></br> `7` - REJECT                                                                            |
 | 1386     | ListRejectReason             | INT          | N        | Possible values: <br></br> `99` - OTHER                                                                                                                      |
 | 103      | OrdRejReason                 | INT          | N        | Possible values: <br></br> `99` - OTHER                                                                                                                      |
@@ -859,14 +1046,74 @@ Sent by the server whenever an order list state changes.
 **Sample message:**
 
 ```
-8=FIX.4.4|9=290|35=N|34=2|49=SPOT|52=20240607-02:19:07.837191|56=Eg13pOvN|55=ABCDEF|60=20240607-02:19:07.836000|66=25|73=2|55=LTCBNB|37=52|11=w1717726747805308656|55=ABCDEF|37=53|11=p1717726747805308656|25010=1|25011=3|25012=0|25013=1|429=4|431=3|1385=2|25014=1717726747805308656|25015=1717726747805308656|10=019|
+8=FIX.4.4|9=293|35=N|34=2|49=SPOT|52=20240607-02:19:07.837191|56=Eg13pOvN|55=BTCUSDT|60=20240607-02:19:07.836000|66=25|73=2|55=BTCUSDT|37=52|11=w1717726747805308656|55=BTCUSDT|37=53|11=p1717726747805308656|25010=1|25011=3|25012=0|25013=1|429=4|431=3|1385=2|25014=1717726747805308656|25015=1717726747805308656|10=162|
+```
+
+<a id="orderamendkeeppriorityrequest"></a>
+
+#### OrderAmendKeepPriorityRequest `<XAK>`
+
+Sent by the client to reduce the original quantity of their order.
+
+This adds 0 orders to the `EXCHANGE_MAX_ORDERS` filter and the `MAX_NUM_ORDERS` filter.
+
+**Unfilled Order Count:** 0
+
+Read [Order Amend Keep Priority FAQ](faqs/order_amend_keep_priority.md) to learn more.
+
+**Notes:**
+
+* The `ClOrdID (11)` is not required to be different from the `ClOrdID` of the order. When the `ClOrdID` of the request is the same as the `ClOrdID` of the order being amended, the `ClOrdID` will remain unchanged.
+* If both `OrderID (37)` and `OrigClOrdID (41)` are provided, the `OrderID` is searched first, then the `OrigClOrdID (41)` from that result is checked against that order. If both conditions are not met the request will be rejected.
+
+| Tag | Name | Type | Required | Description |
+| :---- | :---- | :---- | :---- | ----- |
+| 11 | ClOrdID | STRING | Y | The ClOrdID of this request.  |
+| 41 | OrigClOrdID | STRING | N | `ClOrdID (11)` of the order to amend. Either `OrigClOrdID (41)` or `OrderId (37)` have to be specified. |
+| 37 | OrderID | INT | N | `OrderID (37)` of the order to amend. Either `OrigClOrdID (41)` or `OrderId (37)` have to be specified. |
+| 55 | Symbol  | STRING | Y | Symbol on which to amend the order. |
+| 38 | OrderQty | QTY | N | New quantity of the order. Required to be smaller than the original OrderQty of the order. |
+
+**Sample message:**
+
+```
+8=FIX.4.4|9=103|35=XAK|34=2|49=EXAMPLE|52=20250319-12:35:21.087|56=SPOT|11=O2EIAS01742387721086|37=0|38=0.9|55=BTCUSDT|10=254|
+```
+
+**Response:**
+
+* [Reject `<3>`](#reject) if the incoming request is invalid either due to missing required fields, invalid fields, refers to an invalid symbol, or exceeds the message limit.
+* [OrderAmendReject `<XAR>`](#orderamendreject) if failed due to insufficient order rate limits, pointing to a non-existent order, quantity is invalid, etc.
+* [ExecutionReport `<8>`](#executionReport) if the request succeeded for amending a single order.
+* [ExecutionReport `<8>`](#executionReport) \+ [ListStatus `<N>`](#liststatus) if the request succeeded for amending an order which is part of an Order list.
+
+<a id="orderamendreject"></a>
+
+### OrderAmendReject `<XAR>`
+
+Sent by the server when the OrderAmendKeepPriorityRequest `<XAK>` has failed.
+
+| Tag | Name | Type | Required | Description |
+| :---- | :---- | :---- | :---- | :---- |
+| 11 | ClOrdID | STRING | Y | `ClOrdId` of the amend request. |
+| 41 | OrigClOrdID | STRING | N | `OrigClOrdId` (41) from the amend request. |
+| 37 | OrderID | INT | N | `OrderId (37)` from the amend request. |
+| 55 | Symbol | STRING | Y | `Symbol (55)` from the amend request. |
+| 38 | OrderQty | QTY | Y |  |
+| 25016 | ErrorCode | INT | Y | API error code (see [Error Codes](errors.md)). |
+| 58 | Text | STRING | Y | Human-readable error message. |
+
+**Sample message:**
+
+```
+8=FIX.4.4|9=0000176|35=XAR|49=SPOT|56=OE|34=2|52=20250319-14:27:32.751074|11=1WRGW5J1742394452749|37=0|55=BTCUSDT|38=1.000000|25016=-2038|58=The requested action would change no state; rejecting.|10=235|
 ```
 
 ### Limit Messages
 
 <a id="limitquery"></a>
 
-#### LimitQuery<code>&lt;XLQ&gt;</code>
+#### LimitQuery `<XLQ>`
 
 Sent by the client to query current limits.
 
@@ -882,7 +1129,7 @@ Sent by the client to query current limits.
 
 <a id="limitresponse"></a>
 
-#### LimitResponse<code>&lt;XLR&gt;</code>
+#### LimitResponse `<XLR>`
 
 Sent by the server in response to [LimitQuery`<XLQ>`](#limitquery).
 
@@ -909,9 +1156,9 @@ Sent by the server in response to [LimitQuery`<XLQ>`](#limitquery).
 
 <a id="instrumentlistrequest"></a>
 
-#### InstrumentListRequest<code>&lt;x&gt;</code>
+#### InstrumentListRequest `<x>`
 
-Sent by the client to query information about active instruments (i.e., those that have the TRADING status). If used for an inactive instrument, it will be responded to with a [Reject`<3>`](#reject).
+Sent by the client to query information about instruments.
 
 | Tag | Name                      | Type   | Required | Description                                                                        |
 |-----|---------------------------|--------|----------|------------------------------------------------------------------------------------|
@@ -927,7 +1174,7 @@ Sent by the client to query information about active instruments (i.e., those th
 
 <a id="instrumentlist"></a>
 
-#### InstrumentList<code>&lt;y&gt;</code>
+#### InstrumentList `<y>`
 
 Sent by the server in a response to the [InstrumentListRequest`<x>`](#instrumentlistrequest).
 
@@ -941,13 +1188,15 @@ Sent by the server in a response to the [InstrumentListRequest`<x>`](#instrument
 | 146     | NoRelatedSym          | NUMINGROUP | Y        | Number of symbols                          |
 | =>55    | Symbol                | STRING     | Y        |                                            |
 | =>15    | Currency              | STRING     | Y        | Quote asset of this symbol                 |
-| =>562   | MinTradeVol           | QTY        | Y        | The minimum trading quantity               |
-| =>1140  | MaxTradeVol           | QTY        | Y        | The maximum trading quantity               |
-| =>25039 | MinQtyIncrement       | QTY        | Y        | The minimum quantity increase              |
-| =>25040 | MarketMinTradeVol     | QTY        | Y        | The minimum market order trading quantity  |
-| =>25041 | MarketMaxTradeVol     | QTY        | Y        | The maximum market order trading quantity  |
-| =>25042 | MarketMinQtyIncrement | QTY        | Y        | The minimum market order quantity increase |
-| =>969   | MinPriceIncrement     | PRICE      | Y        | The minimum price increase                 |
+| =>562   | MinTradeVol           | QTY        | N        | Corresponds to the [LOT_SIZE](filters.md#lot_size) filter|
+| =>1140  | MaxTradeVol           | QTY        | N        | Corresponds to the [LOT_SIZE](filters.md#lot_size) filter|
+| =>25039 | MinQtyIncrement       | QTY        | N        | Corresponds to the [LOT_SIZE](filters.md#lot_size) filter|
+| =>25040 | MarketMinTradeVol     | QTY        | N        | Corresponds to the [MARKET_LOT_SIZE](filters.md#market_lot_size) filter|
+| =>25041 | MarketMaxTradeVol     | QTY        | N        | Corresponds to the [MARKET_LOT_SIZE](filters.md#market_lot_size) filter|
+| =>25042 | MarketMinQtyIncrement | QTY        | N        | Corresponds to the [MARKET_LOT_SIZE](filters.md#market_lot_size) filter|
+| =>969   | MinPriceIncrement     | PRICE      | N        | Corresponds to the [PRICE](filters.md#price) filter|
+| =>2551  | StartPriceRange       | PRICE      | N        | Corresponds to the [PRICE](filters.md#price) filter|
+| =>2552  | EndPriceRange         | PRICE      | N        | Corresponds to the [PRICE](filters.md#price) filter|
 
 **Sample message:**
 
@@ -957,7 +1206,7 @@ Sent by the server in a response to the [InstrumentListRequest`<x>`](#instrument
 
 <a id="marketdatarequest"></a>
 
-#### MarketDataRequest<code>&lt;V&gt;</code>
+#### MarketDataRequest `<V>`
 
 Sent by the client to subscribe to or unsubscribe from market data stream.
 
@@ -1043,7 +1292,7 @@ Order book price and quantity depth updates used to locally manage an order book
 
 <a id="marketdatarequestreject"></a>
 
-### MarketDataRequestReject<code>&lt;Y&gt;</code>
+### MarketDataRequestReject `<Y>`
 
 Sent by the server in a response to an invalid MarketDataRequest `<V>`.
 
@@ -1062,7 +1311,7 @@ Sent by the server in a response to an invalid MarketDataRequest `<V>`.
 
 <a id="marketdatasnapshot"></a>
 
-### MarketDataSnapshot<code>&lt;W&gt;</code>
+### MarketDataSnapshot `<W>`
 
 Sent by the server in response to a [MarketDataRequest`<V>`](#marketdatarequest), activating [Individual Symbol Book Ticker Stream](#symbolbooktickerstream) or [Diff. Depth Stream](#diffdepthstream) subscriptions.
 
@@ -1084,14 +1333,14 @@ Sent by the server in response to a [MarketDataRequest`<V>`](#marketdatarequest)
 
 <a id="marketdataincrementalrefresh"></a>
 
-### MarketDataIncrementalRefresh<code>&lt;X&gt;</code>
+### MarketDataIncrementalRefresh `<X>`
 
 Sent by the server when there is a change in a subscribed stream.
 
 | Tag     | Name              | Type         | Required | Description                                                                                                                                                                                                                                                                                                                                                                                                                  |
 |---------|-------------------|--------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 262     | MDReqID           | STRING       | Y        | ID of the [MarketDataRequest`<V>`](#marketdatarequest) that activated this subscription                                                                                                                                                                                                                                                                                                                                      |
-| 893     | LastFragment      | BOOLEAN      | N        | When present, this indicates that the message was fragmented. Fragmentation occurs when `NoMDEntry` would exceed 10000 in a single [MarketDataIncrementalRefresh`<X>`](#marketdataincrementalrefresh), in order to limit it to 10000. The fragments of a fragmented message are guaranteed to be consecutive in the stream. It can only appear in the [Trade Stream](#tradestream) and [Diff. Depth Stream](#diffdepthstream). |
+| 893     | LastFragment      | BOOLEAN      | N        | When present, this indicates that the message was fragmented. Fragmentation may occur when `NoMDEntry` would exceed 10000 in a single [MarketDataIncrementalRefresh`<X>`](#marketdataincrementalrefresh), in order to limit it to 10000. The fragments of a fragmented message are guaranteed to be consecutive in the stream. It can only appear in the [Trade Stream](#tradestream) and [Diff. Depth Stream](#diffdepthstream). |
 | 268     | NoMDEntries       | NUMINGROUP   | Y        | Number of entries                                                                                                                                                                                                                                                                                                                                                                                                            |
 | =>279   | MDUpdateAction    | CHAR         | Y        | Possible values: <br></br> `0` - NEW <br></br> `1` - CHANGE <br></br> `2` - DELETE                                                                                                                                                                                                                                                                                                                                           |
 | =>270   | MDEntryPx         | PRICE        | Y        | Price                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -1127,3 +1376,172 @@ Sent by the server when there is a change in a subscribed stream.
 8=FIX.4.4|9=171|35=X|34=13|49=SPOT|52=20250116-19:45:31.774263|56=EXAMPLE|262=id|268=2|279=2|270=284.00|269=0|55=BNBBUSD|25043=1143|25044=1145|279=1|270=264.00|271=3.00000000|269=0|893=N|10=239|
 8=FIX.4.4|9=149|35=X|34=14|49=SPOT|52=20250116-19:45:31.774281|56=EXAMPLE|262=id|268=1|279=1|270=395.00|271=19.00000000|269=1|55=BNBBUSD|25043=1143|25044=1145|893=Y|10=024|
 ```
+
+## FIX SBE
+
+FIX SBE (Simple Binary Encoding) can be used instead of FIX with the [spot_fix_testnet_latest.xml](https://github.com/binance/binance-spot-api-docs/blob/master/sbe/schemas/spot_fix_testnet_latest.xml) schema file.
+
+### SBE
+
+Read the [SBE FAQ](../faqs/sbe_faq.md) for important information about using SBE with Binance APIs.
+
+* Please review and understand the [SBE specification](https://www.fixtrading.org/standards/sbe-online/) before attempting to use FIX SBE
+* When encoding and decoding SBE payloads, it is recommended to use code generated by [`SbeTool`](https://github.com/aeron-io/simple-binary-encoding) to ensure compliance with the FIX SBE specification.
+
+### Endpoints
+
+In addition to FIX encoding available on port 9000, two request/response encoding schemes are supported on additional TCP ports. See below endpoints for each API.
+
+#### Order Entry
+
+* `tcp+tls://fix-oe.testnet.binance.vision:9001`: Send FIX requests; receive FIX SBE responses
+    * FIX `SbeSchemaId` tag (=25050) must be set to the FIX SBE schema ID (=1)
+    * The FIX `SbeSchemaVersion` tag (=25051) must be set to the FIX SBE schema version (=0)
+* `tcp+tls://fix-oe.testnet.binance.vision:9002`: Send FIX SBE requests; receive FIX SBE responses
+
+#### Drop Copy
+
+* `tcp+tls://fix-dc.testnet.binance.vision:9001`: Send FIX requests; receive FIX SBE responses
+    * FIX `SbeSchemaId` tag (=25050) must be set to the FIX SBE schema ID (=1)
+    * The FIX `SbeSchemaVersion` tag (=25051) must be set to the FIX SBE schema version (=0)
+* `tcp+tls://fix-dc.testnet.binance.vision:9002`: Send FIX SBE requests; receive FIX SBE responses
+
+#### Market data
+
+* `tcp+tls://fix-md.testnet.binance.vision:9001`: Send FIX requests; receive FIX SBE responses
+    * FIX `SbeSchemaId` tag (=25050) must be set to the FIX SBE schema ID (=1)
+    * The FIX `SbeSchemaVersion` tag (=25051) must be set to the FIX SBE schema version (=0)
+* `tcp+tls://fix-md.testnet.binance.vision:9002`: Send FIX SBE requests; receive FIX SBE responses
+
+### FIX SBE encoding layout
+
+FIX SBE request/response messages always come with a SOFH (Simple Open Framing Header) and message header. A given FIX SBE message of N bytes has the following wire format:
+
+`<SOFH (6 bytes)> <message header (20 bytes)> <message (N bytes)>`
+
+SOFH: This corresponds to the "sofh" composite type in the schema file. This acts as a framing header so that the FIX SBE servers/clients can know the length of SBE messages and ensure messages have been fully received prior to deserializing them
+
+Notes:
+- The two fields within the SOFH MUST be encoded in little-endian
+- The FIX servers only support `0xEB50` for the encodingType field, i.e. only little-endian is supported for all fields
+
+Message header: This corresponds to the "messageHeader" composite type in the schema file.
+
+### Logon
+
+The logon signature (RawData) is computed as documented in the [signature computation](#signaturecomputation) section.
+
+#### Sample FIX SBE `Logon` request message
+
+Please see below the hexdump of a sample FIX SBE `Logon` message obtained by following the above instructions.
+
+
+| Bytes                                           | Description                 |
+|-------------------------------------------------|-----------------------------|
+| 0xd1, 0x00, 0x00, 0x00                          | sofh.messageLength          |
+| 0x50, 0xeb                                      | sofh.encodingType           |
+| 0x0e, 0x00                                      | messageHeader.blockLength   |
+| 0x28, 0x4e                                      | messageHeader.templateId    |
+| 0x01, 0x00                                      | messageHeader.schemaId      |
+| 0x00, 0x00                                      | messageHeader.version       |
+| 0x01, 0x00, 0x00, 0x00                          | messageHeader.seqNum        |
+| 0x58, 0x7a, 0x5f, 0x99, 0xdb, 0x1b, 0x06, 0x00  | messageHeader.sendingTime   |
+| 0x00                                            | Logon.EncryptMethod         |
+| 0x1e, 0x00, 0x00, 0x00                          | Logon.HeartBtInt            |
+| 0x01                                            | Logon.ResetSeqNumFlag       |
+| 0x02                                            | Logon.MessageHandling       |
+| 0xff                                            | Logon.ResponseMode          |
+| 0xff                                            | Logon.ExecutionReportType   |
+| 0xff                                            | Logon.DropCopyFlag          |
+| 0xff, 0xff, 0xff, 0xff                          | Logon.RecvWindow            |
+| 0x07                                            | Logon.SenderCompId.length   |
+| 0x45, 0x58, 0x41, 0x4d, 0x50, 0x4c, 0x45        | Logon.SenderCompId.varData  |
+| 0x04                                            | Logon.TargetCompId.length   |
+| 0x53, 0x50, 0x4f, 0x54                          | Logon.TargetCompId.varData  |
+| 0x58, 0x00                                      | Logon.RawData.length        |
+| 0x34, 0x4d, 0x48, 0x58, 0x65, 0x6c, 0x56, 0x56  | Logon.RawData.varData       |
+| 0x63, 0x70, 0x6b, 0x64, 0x77, 0x75, 0x4c, 0x62  | Logon.RawData.varData       |
+| 0x6c, 0x36, 0x6e, 0x37, 0x33, 0x48, 0x51, 0x55  | Logon.RawData.varData       |
+| 0x58, 0x55, 0x66, 0x31, 0x64, 0x73, 0x65, 0x32  | Logon.RawData.varData       |
+| 0x50, 0x43, 0x67, 0x54, 0x31, 0x44, 0x59, 0x71  | Logon.RawData.varData       |
+| 0x57, 0x39, 0x77, 0x38, 0x41, 0x56, 0x5a, 0x31  | Logon.RawData.varData       |
+| 0x52, 0x41, 0x43, 0x46, 0x47, 0x4d, 0x2b, 0x35  | Logon.RawData.varData       |
+| 0x55, 0x64, 0x6c, 0x47, 0x50, 0x72, 0x51, 0x48  | Logon.RawData.varData       |
+| 0x72, 0x67, 0x74, 0x53, 0x33, 0x43, 0x76, 0x73  | Logon.RawData.varData       |
+| 0x52, 0x55, 0x52, 0x43, 0x31, 0x6f, 0x6a, 0x37  | Logon.RawData.varData       |
+| 0x33, 0x6a, 0x38, 0x67, 0x43, 0x41, 0x3d, 0x3d  | Logon.RawData.varData       |
+| 0x40, 0x00                                      | Logon.Username.length       |
+| 0x73, 0x42, 0x52, 0x58, 0x72, 0x4a, 0x78, 0x32  | Logon.Username.varData      |
+| 0x44, 0x73, 0x4f, 0x72, 0x61, 0x4d, 0x58, 0x4f  | Logon.Username.varData      |
+| 0x61, 0x55, 0x6f, 0x76, 0x45, 0x68, 0x67, 0x56  | Logon.Username.varData      |
+| 0x52, 0x63, 0x6a, 0x4f, 0x76, 0x43, 0x74, 0x51  | Logon.Username.varData      |
+| 0x77, 0x6e, 0x57, 0x6a, 0x38, 0x56, 0x78, 0x6b  | Logon.Username.varData      |
+| 0x4f, 0x68, 0x31, 0x78, 0x71, 0x62, 0x6f, 0x53  | Logon.Username.varData      |
+| 0x30, 0x32, 0x53, 0x50, 0x47, 0x66, 0x4b, 0x69  | Logon.Username.varData      |
+| 0x32, 0x68, 0x38, 0x73, 0x70, 0x5a, 0x4a, 0x62  | Logon.Username.varData      |
+
+
+### FIX vs. FIX SBE
+
+General:
+* The `sofh.messageLength` field _must_ include the size of the SOFH (6 bytes)
+* FIX SBE has no `Checksum` field
+* When sending FIX SBE requests on port 9002
+    * All fields must be set in the payload
+    * Optional fields that are not present must be set to the corresponding `nullValue`
+        * The encoders generated by `SbeTool` handle this correctly
+        * Please refer to the definition of `nullValue` in the [SBE specification](https://www.fixtrading.org/standards/sbe-online/) if encoding payloads manually
+
+**Logon** message:
+* The `SenderCompID`, `TargetCompID` and `RecvWindow` fields are provided in the `Logon` FIX SBE message instead of the message header
+    * The `RecvWindow` field set in the `Logon` message applies to all trading request messages within the FIX SBE session
+    * When set, the `RecvWindow` field is in microseconds
+* When the `ResponseMode` field is set to `OnlyAcks`, the `ExecutionReportType` field can be set to `Mini` to receive `ExecutionReportAck` messages instead of `ExecutionReport`
+    * Note: The `ExecutionReportType` field is only supported on port 9001 and port 9002 for the Order Entry and Drop Copy endpoints
+
+**MarketDataIncrementalRefresh** message:
+* This single message in the FIX schema is split into the following FIX SBE messages: `MarketDataIncrementalTrade`, `MarketDataIncrementalBookTicker` and `MarketDataIncrementalDepth`
+* The `MDReqID` field is omitted from the market data snapshot and refresh messages as these messages can be tied to the subscription request using the `Symbol` field and the message's template ID
+    * `MDReqID` is required in the `MarketDataRequest` message so that it may appear in `MarketDataRequestReject`
+    * The value of `MDReqID` must be unique across subscriptions
+
+**MarketDataIncrementalTrade** message:
+* The MDUpdateAction field available in the FIX schema is omitted in FIX SBE since the value is always `NEW`.
+
+**MarketDataIncrementalBookTicker** message:
+* FIX SBE book ticker subscriptions use **auto-culling**: when the system is under high load, it may drop outdated events instead of queuing all events and delivering them with a delay.
+    * For example, if a best bid/ask event is generated at time T2 when there is still an undelivered event queued at time T1 (where T1 < T2), the event for T1 is dropped, and the system will deliver only the event for T2. This is done on a per-symbol basis.
+* The `MDUpdateAction` field available in the FIX schema is omitted in FIX SBE as its value may be derived from `MDEntrySize`.
+    * When `MDEntrySize` is unset (`NullVal`), `MDUpdateAction` is `DELETE`.
+    * When `MDEntrySize` is set,
+        * if the price level exists in your local order book, `MDUpdateAction` is `CHANGE`
+        * else `MDUpdateAction` is `NEW`.
+
+**MarketDataIncrementalDepth** message:
+* FIX SBE depth update speed: 50ms
+* The `MDUpdateAction` field available in the FIX schema is omitted in FIX SBE as its value may be derived from `MDEntrySize`.
+    * When `MDEntrySize` is unset (`NullVal`), `MDUpdateAction` is `DELETE`.
+    * When `MDEntrySize` is set,
+        * if the price level exists in your local order book, `MDUpdateAction` is `CHANGE`
+        * else `MDUpdateAction` is `NEW`.
+
+### Limits
+
+Connection limits are shared between FIX and FIX SBE.
+
+### Errors
+
+The following FIX SBE-specific errors may be returned:
+
+| Code    | Message                                         |  Description                                                       |
+|---------|-------------------------------------------------|--------------------------------------------------------------------|
+| -1152   | Invalid SBE message header.                     | Error when decoding `messageHeader` in FIX SBE request             |
+| -1153   | Invalid SBE schema ID or version specified.     | Error when parsing/decoding FIX SBE schema ID/version              |
+| -1177   | Invalid encodingType.                           | Error when decoding `encodingType` field in sofh composite type    |
+| -1221   | Invalid/missing field(s) in SBE message.        | Invalid/missing field when decoding FIX SBE request                |
+
+Note: Error codes returned for semantically equivalent FIX and FIX SBE requests may not be identical.
+
+### FAQ
+
+See the [SBE FAQ](../faqs/sbe_faq.md) for more information on generating SBE decoders and handling schema updates.

@@ -36,6 +36,8 @@
    <field name='Username' required='N'/>
    <field name='MessageHandling' required='N'/>
    <field name='UUID' required='N'/>
+   <field name='SBESchemaID' required='N'/>
+   <field name='SBESchemaVersion' required='N'/>
   </message>
   <message name='LimitQuery' msgcat='app' msgtype='XLQ'>
    <field name='ReqID' required='Y'/>
@@ -60,13 +62,15 @@
    <group name='NoRelatedSym' required='Y'>
     <field name='Symbol' required='Y'/>
     <field name='Currency' required='Y'/>
-    <field name='MinTradeVol' required='Y'/>
-    <field name='MaxTradeVol' required='Y'/>
-    <field name='MinQtyIncrement' required='Y'/>
-    <field name='MarketMinTradeVol' required='Y'/>
-    <field name='MarketMaxTradeVol' required='Y'/>
-    <field name='MarketMinQtyIncrement' required='Y'/>
-    <field name='MinPriceIncrement' required='Y'/>
+    <field name='MinTradeVol' required='N'/>
+    <field name='MaxTradeVol' required='N'/>
+    <field name='MinQtyIncrement' required='N'/>
+    <field name='MarketMinTradeVol' required='N'/>
+    <field name='MarketMaxTradeVol' required='N'/>
+    <field name='MarketMinQtyIncrement' required='N'/>
+    <field name='StartPriceRange' required='N'/>
+    <field name='EndPriceRange' required='N'/>
+    <field name='MinPriceIncrement' required='N'/>
    </group>
   </message>
   <message name='MarketDataRequest' msgcat='app' msgtype='V'>
@@ -167,9 +171,9 @@
   <field number='146' name='NoRelatedSym' type='NUMINGROUP'/>
   <field number='148' name='Headline' type='STRING'/>
   <field number='262' name='MDReqID' type='STRING'/>
-  <field number='263' name='SubscriptionRequestType' type='char'>
-   <value enum='1' description='Subscribe'/>
-   <value enum='2' description='Unsubscribe'/>
+  <field number='263' name='SubscriptionRequestType' type='CHAR'>
+   <value enum='1' description='SUBSCRIBE'/>
+   <value enum='2' description='UNSUBSCRIBE'/>
   </field>
   <field number='264' name='MarketDepth' type='INT'/>
   <field number='266' name='AggregatedBook' type='BOOLEAN'>
@@ -177,7 +181,7 @@
   </field>
   <field number='267' name='NoMDEntryTypes' type='NUMINGROUP'/>
   <field number='268' name='NoMDEntries' type='NUMINGROUP'/>
-  <field number='269' name='MDEntryType' type='CHAR'>>
+  <field number='269' name='MDEntryType' type='CHAR'>
    <value enum='0' description='BID'/>
    <value enum='1' description='OFFER'/>
    <value enum='2' description='TRADE'/>
@@ -228,8 +232,10 @@
    <value enum='1' description='BUY'/>
    <value enum='2' description='SELL'/>
   </field>
+  <field number='2551' name='StartPriceRange' type='PRICE'/>
+  <field number='2552' name='EndPriceRange' type='PRICE'/>
   <field number='6136' name='ReqID' type='STRING'/>
-  <field number='25000' name='RecvWindow' type='INT'/>
+  <field number='25000' name='RecvWindow' type='FLOAT'/>
   <field number='25003' name='NoLimitIndicators' type='NUMINGROUP'/>
   <field number='25004' name='LimitType' type='CHAR'>
    <value enum='2' description='MESSAGE_LIMIT'/>
@@ -256,5 +262,8 @@
   <field number='25042' name='MarketMinQtyIncrement' type='QTY'/>
   <field number='25043' name='FirstBookUpdateID' type='INT'/>
   <field number='25044' name='LastBookUpdateID' type='INT'/>
+  <field number='25050' name='SBESchemaID' type='INT'/>
+  <field number='25051' name='SBESchemaVersion' type='INT'/>
+  <field number='25052' name='SBESchemaVersionDeprecated' type='INT'/>
  </fields>
 </fix>

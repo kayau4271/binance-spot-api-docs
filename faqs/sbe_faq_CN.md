@@ -11,9 +11,9 @@ SBE 是一种用于实现低延迟的序列化格式。
 * [GitHub repository](https://github.com/FIXTradingCommunity/fix-simple-binary-encoding)
 * [HTML document](https://www.fixtrading.org/standards/sbe-online)
 
-## 如何获取 SBE 响应
+### 如何获取 SBE 响应
 
-### REST API:
+#### REST API
 
 * `Accept` 报文头必须包含 `application/sbe`。
 * 在 `X-MBX-SBE` 报文头中以 `<ID>:<VERSION>` 的形式提供 `schema ID` 和 `version`。
@@ -33,10 +33,10 @@ curl -sX GET -H "Accept: application/sbe" -H "X-MBX-SBE: 1:0" 'https://api.binan
 * 如果你在 `Accept` 报文头中同时提供了 `application/sbe` 和 `application/json`：
   	* 如果交易所不支持 `SBE`，那么响应将会被回退到 `JSON`。
 	* 如果在 `X-MBX-SBE` 报文头中提供的 XML 模式是属于格式错误或不正确的情况，那么响应将会被回退到 `JSON`。
-	* 如果 `X-MBX-SBE` 报文头缺失，那么响应将会被回退到 `JSON`。	
+	* 如果 `X-MBX-SBE` 报文头缺失，那么响应将会被回退到 `JSON`。
 
 
-### WebSocket API:
+#### WebSocket API
 
 * 在请求的URL中添加 `responseFormat=sbe`。
 * 添加schema ID 和 version 到参数 `sbeSchemaId=<SCHEMA_ID>` 和 `sbeSchemaVersion=<SCHEMA_VERSION>`。
@@ -68,17 +68,24 @@ response=$(echo $request | websocat -n1 'wss://ws-api.binance.com:443/ws-api/v3?
     * 这意味着，如果在您的WebSocket连接处于活动状态时禁用了SBE，那么在对您的后续请求做出响应时，您将会收到一个被SBE编码了的“SBE未启用”错误。
 * 就目前而言，我们不建议使用`websocat`发送任何请求，因为我们观察到了它解码二进制帧的问题。上面的样本仅用作参考，显示获取SBE响应的URL。
 
+#### FIX API
 
-## 支持的 APIs
+详情请参见 FIX API 的 [SBE 部分](../fix-api_CN.md#fix-sbe)
 
-目前现货交易的 REST API 和 WebSocket API 支持 `SBE`。
 
-## SBE 模式
+### 支持的 APIs
+
+REST API、WebSocket API 和 FIX API 对现货（SPOT）支持 `SBE`。
+
+<a id="sbe-schema"></a>
+### SBE 模式
 
 * 将被使用的模式 (schema) 会被保存在此仓库 (repository) 中，[请看这里](https://github.com/binance/binance-spot-api-docs/tree/master/sbe/schemas)。
 * 对于模式的任何更新将会被记录在[更改日志](../CHANGELOG_CN.md)中。
 
-**关于对旧版本的支持：**
+<a id="regarding-legacy-support"></a>
+
+#### 关于对旧版本的支持：
 
 * SBE 模式通过两个 XML 属性进行版本控制，`id` 和 `version`。
 	* 当引入破坏性更改时，`id` 会增加。当这种情况发生时，`version` 会被重置为0。
@@ -96,9 +103,20 @@ response=$(echo $request | websocat -n1 'wss://ws-api.binance.com:443/ws-api/v3?
 	* 3025年2月：发布模式id 2 版本 1。这个模式引入了一个非破坏性的变化。
 		* 模式 id 1 version 1 已被停用。
 		* 模式 id 2 version 0 此时已被废止，但还可以再被使用至少另外6个月。
-* HTTP将在针对 `X-MBX-SBE header` 中已被废止的 `SBE` 模式版本请求的响应中包含一个 `X-MBX-SBE-DEPRECATED` 报文头 。
-* 对于WebSocket响应，如果在其连接URL中指定了已弃用的`sbeSchemaId`和`sbeSchemaVersion`，`sbeSchemaIdVersionDeprecated`字段将被设置为`true`。
-* 指定已废止的`<ID>:<VERSION>`（REST API）或`sbeSchemaId`和`sbeSchemaVersion` （WebSocket API）的请求将会返回HTTP 400错误。
+* 当 REST API 请求中在 `X-MBX-SBE` 头部里指定了已废止的 `<ID>:<VERSION>` 时：
+    * HTTP 响应将包含 `X-MBX-SBE-DEPRECATED` 头部
+    * SBE 响应将使用可兼容的最高版本模式进行编码
+        * 例如，从2025-08-27 开始，针对 `X-MBX-SBE: 3:0` 的请求将收到以模式 `3:1` 进行编码的响应。根据 [FIX SBE 规范](https://www.fixtrading.org/standards/sbe-online/#schema-extension-mechanism)，模式 `3:0` 的 SBE 解码器应该能够顺利地对模式 `3:1` 进行解码。
+* 当 WebSocket API 连接 URL 中指定了已废止的 `sbeSchemaId` 和 `sbeSchemaVersion` 时：
+    * 所有 `WebSocketResponse` SBE 消息中的字段 `sbeSchemaIdVersionDeprecated` 将被设置为 `true`
+    * 所有 SBE 响应将使用可兼容的最高版本模式进行编码
+        * 例如，从2025-08-27 开始，针对 `sbeSchemaId=3&sbeSchemaVersion=0` 的请求将收到以模式 `3:1` 进行编码的响应。根据 [FIX SBE 规范](https://www.fixtrading.org/standards/sbe-online/#schema-extension-mechanism)，模式 `3:0` 的 SBE 解码器应该能够顺利地对模式 `3:1` 进行解码。
+* 对于 FIX API，当 SBE 请求消息头指定了已弃用的 `schemaId` 和 `version` 时：
+    * 在 `LogonAck` 消息中，字段 `sbeSchemaIdVersionDeprecated` 将被设置为 `true`
+    * 所有 SBE 响应消息将使用所提供 `schemaId` 的最高模式版本进行编码
+* 指定已废弃的 schemaId/version 的请求将失败，返回 HTTP 400（REST 和 WebSocket）或拒绝消息（FIX API）。
+* 在 SBE 模式 [3:0](https://github.com/binance/binance-spot-api-docs/blob/master/sbe/schemas/spot_3_0.xml) 中，为每个 `enum` 添加了名为 `NonRepresentable` 的 `validValue`。接收到该值表示使用最新模式时有额外数据可用。
+* 在 SBE 模式 [3:1](https://github.com/binance/binance-spot-api-docs/blob/master/sbe/schemas/spot_3_1.xml) 中，添加了名为 `NonRepresentableMessage` 的消息。接收到该消息表示使用最新模式时有额外数据可用。该消息可能作为顶层消息接收，或当 `data` 字段的 `type` 为 `messageData`、`messageData8`、`messageData16`、`optionalMessageData` 或 `optionalMessageData16` 时嵌入在 `data` 字段中。
 * 关于模式生命周期的 `JSON` 文件将被保存在此仓库中，[请看这里](https://github.com/binance/binance-spot-api-docs/tree/master/sbe/schemas)。这个文件包含了关于实时交易所和现货测试网的最新、被废止和被停用模式的具体发生日期。<br> 以下是一个基于上述假设时间线的 `JSON` 示例：
 
 ```json
@@ -107,14 +125,14 @@ response=$(echo $request | websocat -n1 'wss://ws-api.binance.com:443/ws-api/v3?
     "latestSchema": {
         "id": 2,
         "version": 1,
-        "releaseDate": "3025-02-01" 
+        "releaseDate": "3025-02-01"
     },
     "deprecatedSchemas": [
         {
             "id": 2,
             "version": 0,
             "releaseDate": "3024-08-01",
-            "deprecatedDate": "3025-02-01" 
+            "deprecatedDate": "3025-02-01"
         }
     ],
     "retiredSchemas": [
@@ -122,7 +140,7 @@ response=$(echo $request | websocat -n1 'wss://ws-api.binance.com:443/ws-api/v3?
             "id": 1,
             "version": 1,
             "releaseDate": "3024-03-01",
-            "deprecatedDate": "3024-08-01", 
+            "deprecatedDate": "3024-08-01",
             "retiredDate": "3025-02-01",
         },
         {
@@ -136,11 +154,16 @@ response=$(echo $request | websocat -n1 'wss://ws-api.binance.com:443/ws-api/v3?
 }
 ```
 
-## 生成解码器：
+<a id="generate-sbe-decoders"></a>
+### 生成解码器：
 
 1. 下载模式：
-    * [`spot_prod_latest.xml`](../sbe/schemas/spot_prod_latest.xml) 适用于实时交易所。
-    * [`spot_testnet_latest.xml`](../sbe/schemas/spot_testnet_latest.xml) 适用于 [现货测试网](https://testnet.binance.vision)。
+* REST/WebSocket API：
+    * [`spot_prod_latest.xml`](https://github.com/binance/binance-spot-api-docs/blob/master/sbe/schemas/spot_prod_latest.xml) 用于实时交易所。
+    * [`spot_testnet_latest.xml`](https://github.com/binance/binance-spot-api-docs/blob/master/sbe/schemas/spot_testnet_latest.xml) 用于[现货测试网](https://testnet.binance.vision)。
+* FIX API：
+    * [`spot_fix_prod_latest.xml`](https://github.com/binance/binance-spot-api-docs/blob/master/sbe/schemas/spot_fix_prod_latest.xml) 用于实时交易所。
+    * [`spot_fix_testnet_latest.xml`](https://github.com/binance/binance-spot-api-docs/blob/master/sbe/schemas/spot_fix_testnet_latest.xml) 用于[现货测试网](https://testnet.binance.vision)。
 2. 克隆并构建 [`simple-binary-encoding`](https://github.com/real-logic/simple-binary-encoding)：
 ```shell
  $ git clone https://github.com/real-logic/simple-binary-encoding.git
@@ -149,20 +172,17 @@ response=$(echo $request | websocat -n1 'wss://ws-api.binance.com:443/ws-api/v3?
 ```
 3. 运行 `SbeTool` 代码生成器。（请参考这里分别使用[Java](https://github.com/binance/binance-sbe-java-sample-app), [C++](https://github.com/binance/binance-sbe-cpp-sample-app) 和 [Rust](https://github.com/binance/binance-sbe-rust-sample-app) 解码交易所信息 payload 的样本。）
 
-### 十进制字段编码
+#### 十进制字段编码
 
 不同于 `FIX SBE` 的规范，十进制字段的尾数和指数字段被单独编码为原始字段，以便使负载量和消息内编码字段的数量达到最小化。
 
-### 时间戳字段编码
+#### 时间戳字段编码
 
 SBE响应中的时间戳(Timestamps)是以微秒为单位。这与包含毫秒时间戳的JSON响应不同。
 
-### 模式文件中的自定义字段属性
+#### 模式文件中的自定义字段属性
 
 在模式文件中添加了一些以 `mbx:` 为前缀的字段属性，供文档使用：
 - `mbx:exponent`：指向对应于尾数字段的指数域
 - `mbx:jsonPath`：包含了 `JSON` 响应中相应字段的名称
 - `mbx:jsonValue`: 包含了 `JSON` 响应中等价 `ENUM` 值的名称
-
-
-

@@ -1,22 +1,33 @@
 # Binance 的公共 WebSocket API
 
-**最近更新： 2025-03-05**
-
-
+<a id="general-api-information"></a>
 ## API 基本信息
 
 * 本篇所列出的 wss 接口的 base URL：**`wss://ws-api.binance.com:443/ws-api/v3`**
   * 如果使用标准443端口时遇到问题，可以使用替代端口9443。
-  * [现货测试网](https://testnet.binance.vision)的 base URL 是 `wss://testnet.binance.vision/ws-api/v3`。
+  * [现货测试网](https://testnet.binance.vision)的 base URL 是 `wss://ws-api.testnet.binance.vision/ws-api/v3`。
 * 每个到 base URL 的链接有效期不超过24小时，请妥善处理断线重连。
+* 我们支持 HMAC，RSA 以及 Ed25519 Key 类型。 如需进一步了解，请参考 [API Key 类型](faqs/api_key_types_CN.md)。
+* 响应默认为 JSON 格式。如果您想接收 SBE 格式的响应，请参考 [简单二进制编码 （SBE） 常见问题](./faqs/sbe_faq_CN.md)。
+* 如果您的请求包含非 ASCII 字符的交易对名称，那么响应中可能包含以 UTF-8 编码的非 ASCII 字符。
+* 即使请求本身不包含非 ASCII 字符，某些方法也可能会返回包含以 UTF-8 编码的非 ASCII 字符的资产和/或交易对名称。
 * WebSocket 服务器**每20秒**发送 PING 消息。
   * 如果websocket 服务器没有在一分钟之内收到PONG 消息应答，连接会被断开。
   * 当客户收到PING消息，必须尽快回复PONG消息，同时payload需要和PING消息一致。
   * 服务器允许未经请求的PONG消息，但这不会保证连接不断开。**对于这些PONG 消息，建议payload为空。**
-* 响应中如有数组，数组元素以时间**时间顺序**排列，越早的数据越提前。
+* 除非另有说明，否则数据将按**时间顺序**返回。
+  * 如果未指定 `startTime` 或 `endTime`，则返回最近的条目，直至达到限制值。
+  * 如果指定 `startTime`，则返回从 `startTime` 到限制值为止最老的条目。
+  * 如果指定 `endTime`，则返回截至 `endTime` 和限制值为止最近的条目。
+  * 如果同时指定 `startTime` 和 `endTime`，则行为类似于 `startTime`，但不超过 `endTime`。
 * JSON 响应中的所有时间和时间戳相关字段均以**UTC 毫秒为默认单位**。要以微秒为单位接收信息，请在 URL 中添加参数 `timeUnit=MICROSECOND` 或 `timeUnit=microsecond`。
 * 时间戳参数（例如 `startTime`、`endTime`、`timestamp`）可以以毫秒或微秒为单位传递。
 * 除非另有说明，所有字段名称和值都**大小写敏感**。
+* 如需进一步了解枚举或术语，请参考 [现货交易API术语表](faqs/spot_glossary_CN.md) 页面。
+* API 处理请求的超时时间为 10 秒。如果撮合引擎的响应时间超过此时间，API 将返回 “Timeout waiting for response from backend server. Send status unknown; execution status unknown.”。[(-1007 超时)](errors_CN.md#-1007-timeout)
+  * 这并不总是意味着该请求在撮合引擎中失败。
+  * 如果请求状态未显示在 [WebSocket 账户接口](user-data-stream_CN.md) 中，请执行 API 查询以获取其状态。
+* **请避免在请求中使用 SQL 关键字**，因为这可能会触发 Web 应用防火墙（WAF）规则导致安全拦截。详情请参见 https://www.binance.com/zh-CN/support/faq/detail/360004492232
 
 ## 请求格式
 
@@ -26,19 +37,19 @@
 
 ```json
 {
-  "id": "e2a85d9f-07a5-4f94-8d5f-789dc3deb097",
-  "method": "order.place",
-  "params": {
-    "symbol": "BTCUSDT",
-    "side": "BUY",
-    "type": "LIMIT",
-    "price": "0.1",
-    "quantity": "10",
-    "timeInForce": "GTC",
-    "timestamp": 1655716096498,
-    "apiKey": "T59MTDLWlpRW16JVeZ2Nju5A5C98WkMm8CSzWC4oqynUlTm1zXOxyauT8LmwXEv9",
-    "signature": "5942ad337e6779f2f4c62cd1c26dba71c91514400a24990a3e7f5edec9323f90"
-  }
+    "id": "e2a85d9f-07a5-4f94-8d5f-789dc3deb097",
+    "method": "order.place",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "BUY",
+        "type": "LIMIT",
+        "price": "0.1",
+        "quantity": "10",
+        "timeInForce": "GTC",
+        "timestamp": 1655716096498,
+        "apiKey": "T59MTDLWlpRW16JVeZ2Nju5A5C98WkMm8CSzWC4oqynUlTm1zXOxyauT8LmwXEv9",
+        "signature": "5942ad337e6779f2f4c62cd1c26dba71c91514400a24990a3e7f5edec9323f90"
+    }
 }
 ```
 
@@ -67,49 +78,49 @@
 
 ```json
 {
-  "id": "e2a85d9f-07a5-4f94-8d5f-789dc3deb097",
-  "status": 200,
-  "result": {
-    "symbol": "BTCUSDT",
-    "orderId": 12510053279,
-    "orderListId": -1,
-    "clientOrderId": "a097fe6304b20a7e4fc436",
-    "transactTime": 1655716096505,
-    "price": "0.10000000",
-    "origQty": "10.00000000",
-    "executedQty": "0.00000000",
-    "origQuoteOrderQty": "0.000000",
-    "cummulativeQuoteQty": "0.00000000",
-    "status": "NEW",
-    "timeInForce": "GTC",
-    "type": "LIMIT",
-    "side": "BUY",
-    "workingTime": 1655716096505,
-    "selfTradePreventionMode": "NONE"
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 12
+    "id": "e2a85d9f-07a5-4f94-8d5f-789dc3deb097",
+    "status": 200,
+    "result": {
+        "symbol": "BTCUSDT",
+        "orderId": 12510053279,
+        "orderListId": -1,
+        "clientOrderId": "a097fe6304b20a7e4fc436",
+        "transactTime": 1655716096505,
+        "price": "0.10000000",
+        "origQty": "10.00000000",
+        "executedQty": "0.00000000",
+        "origQuoteOrderQty": "0.000000",
+        "cummulativeQuoteQty": "0.00000000",
+        "status": "NEW",
+        "timeInForce": "GTC",
+        "type": "LIMIT",
+        "side": "BUY",
+        "workingTime": 1655716096505,
+        "selfTradePreventionMode": "NONE"
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 4043
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 321
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 12
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 4043
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 321
+        }
+    ]
 }
 ```
 
@@ -117,35 +128,35 @@
 
 ```json
 {
-  "id": "e2a85d9f-07a5-4f94-8d5f-789dc3deb097",
-  "status": 400,
-  "error": {
-    "code": -2010,
-    "msg": "Account has insufficient balance for requested action."
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 13
+    "id": "e2a85d9f-07a5-4f94-8d5f-789dc3deb097",
+    "status": 400,
+    "error": {
+        "code": -2010,
+        "msg": "Account has insufficient balance for requested action."
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 4044
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 322
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 13
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 4044
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 322
+        }
+    ]
 }
 ```
 
@@ -203,8 +214,8 @@
 * `200` 代码指示成功响应。
 * `4XX` 错误码用于指示错误的请求内容、行为、格式。问题在于请求者。
   * `400` – 错误码表示请求失败，请参阅 `error` 了解原因。
-  * `403` – 错误码表示违反 WAF 限制(Web应用程序防火墙)。
-  * `409` – 错误码表示请求有一部分成功，一部分失败。请参阅 `error` 了解更多详细。
+  * `403` – 错误码表示违反 WAF 限制(Web应用程序防火墙)。这可能表示触发了速率限制或安全拦截。详情请参见 https://www.binance.com/zh-CN/support/faq/detail/360004492232 。
+  * `409` – 错误码表示请求有一部分成功，一部分失败。请参阅 `error` 了解更多详细
   * `418` – 表示收到 429 后继续访问，于是被封了。
   * `429` – 错误码表示警告访问频次超限，即将被封IP。
 * `5XX` 错误码用于指示Binance服务侧的问题。
@@ -217,33 +228,34 @@
 
 ## 事件格式
 
-非 SBE 会话的账户数据流事件以 JSON 格式在 **text 帧** 中发送，每帧一个事件。
+[用户数据流](user-data-stream_CN.md)中的非 SBE 会话事件以 JSON 格式在 **text 帧** 中发送，每帧一个事件。
 
-SBE 会话中的事件将作为 **二进制帧** 发送。
+[SBE 会话](faqs/sbe_faq_CN.md)中的事件将作为 **二进制帧** 发送。
 
-有关如何在 WebSocket API 中订阅账户数据流的详细信息，请参阅 [`订阅账户数据流`](#user_data_stream_susbcribe)。
+有关如何在 WebSocket API 中订阅用户数据流的详细信息，请参阅 [`订阅用户数据流`](#user_data_stream_susbcribe)。
 
 事件示例:
 
 ```javascript
 {
-  "event": {
-    "e": "outboundAccountPosition",
-    "E": 1728972148778,
-    "u": 1728972148778,
-    "B": [
-      {
-        "a": "ABC",
-        "f": "11818.00000000",
-        "l": "182.00000000"
-      },
-      {
-        "a": "DEF",
-        "f": "10580.00000000",
-        "l": "70.00000000"
-      }
-    ]
-  }
+    "subscriptionId": 0,
+    "event": {
+        "e": "outboundAccountPosition",
+        "E": 1728972148778,
+        "u": 1728972148778,
+        "B": [
+            {
+                "a": "BTC",
+                "f": "11818.00000000",
+                "l": "182.00000000"
+            },
+            {
+                "a": "USDT",
+                "f": "10580.00000000",
+                "l": "70.00000000"
+            }
+        ]
+    }
 }
 ```
 
@@ -251,8 +263,8 @@ SBE 会话中的事件将作为 **二进制帧** 发送。
 
 | 名称             | 类型    | 是否必须    | 描述
 | --------------- | ------- | --------- | -----------
-| `event` | OBJECT    | YES       | 事件 payload。请看 [WebSocket 账户接口](user-data-stream_CN.md)
-
+| `event` | OBJECT    | YES       | 事件 payload。请看 [用户数据流](user-data-stream_CN.md)
+| `subscriptionId` | INT | NO | 用以标识事件来自于哪个订阅。详见 [用户数据流订阅](#general_info_user_data_stream_subscriptions) |
 
 <a id="ratelimits"></a>
 
@@ -275,20 +287,20 @@ SBE 会话中的事件将作为 **二进制帧** 发送。
 
 ```json
 {
-  "id": "7069b743-f477-4ae3-81db-db9b8df085d2",
-  "status": 200,
-  "result": {
-    "serverTime": 1656400526260
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 70
-    }
-  ]
+    "id": "7069b743-f477-4ae3-81db-db9b8df085d2",
+    "status": 200,
+    "result": {
+        "serverTime": 1656400526260
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 70
+        }
+    ]
 }
 ```
 
@@ -329,21 +341,34 @@ API 有多种频率限制间隔。
   默认请求和响应：
 
   ```json
-  {"id":1,"method":"time"}
+  { "id": 1, "method": "time" }
   ```
 
   ```json
-  {"id":1,"status":200,"result":{"serverTime":1656400526260},"rateLimits":[{"rateLimitType":"REQUEST_WEIGHT","interval":"MINUTE","intervalNum":1,"limit":6000,"count":70}]}
+  {
+      "id": 1,
+      "status": 200,
+      "result": { "serverTime": 1656400526260 },
+      "rateLimits": [
+          {
+              "rateLimitType": "REQUEST_WEIGHT",
+              "interval": "MINUTE",
+              "intervalNum": 1,
+              "limit": 6000,
+              "count": 70
+          }
+      ]
+  }
   ```
 
   没有频率限制状态的请求和响应：
 
   ```json
-  {"id":2,"method":"time","params":{"returnRateLimits":false}}
+  { "id": 2, "method": "time", "params": { "returnRateLimits": false } }
   ```
 
   ```json
-  {"id":2,"status":200,"result":{"serverTime":1656400527891}}
+  { "id": 2, "status": 200, "result": { "serverTime": 1656400527891 } }
   ```
 
 * 连接 URL 中可选的 `returnRateLimits` boolean 参数。
@@ -381,18 +406,18 @@ API 有多种频率限制间隔。
 
 ```json
 {
-  "id": "7069b743-f477-4ae3-81db-db9b8df085d2",
-  "status": 200,
-  "result": [],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 70
-    }
-  ]
+    "id": "7069b743-f477-4ae3-81db-db9b8df085d2",
+    "status": 200,
+    "result": [],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 70
+        }
+    ]
 }
 ```
 
@@ -400,25 +425,25 @@ API 有多种频率限制间隔。
 
 ```json
 {
-  "id": "fc93a61a-a192-4cf4-bb2a-a8f0f0c51e06",
-  "status": 418,
-  "error": {
-    "code": -1003,
-    "msg": "Way too much request weight used; IP banned until 1659146400000. Please use WebSocket Streams for live updates to avoid bans.",
-    "data": {
-      "serverTime": 1659142907531,
-      "retryAfter": 1659146400000
-    }
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2411
-    }
-  ]
+    "id": "fc93a61a-a192-4cf4-bb2a-a8f0f0c51e06",
+    "status": 418,
+    "error": {
+        "code": -1003,
+        "msg": "Way too much request weight used; IP banned until 1659146400000. Please use WebSocket Streams for live updates to avoid bans.",
+        "data": {
+            "serverTime": 1659142907531,
+            "retryAfter": 1659146400000
+        }
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 2411
+        }
+    ]
 }
 ```
 
@@ -436,100 +461,110 @@ API 有多种频率限制间隔。
 * 这是按 **每一个账户** 维护的，并由该账户的所有 API 密钥共享。
 
 表示在10秒内下了12个订单和在24小时内下了4043个订单的成功响应：
-
 ```json
 {
-  "id": "e2a85d9f-07a5-4f94-8d5f-789dc3deb097",
-  "status": 200,
-  "result": {
-    "symbol": "BTCUSDT",
-    "orderId": 12510053279,
-    "orderListId": -1,
-    "clientOrderId": "a097fe6304b20a7e4fc436",
-    "transactTime": 1655716096505,
-    "price": "0.10000000",
-    "origQty": "10.00000000",
-    "executedQty": "0.00000000",
-    "origQuoteOrderQty": "0.000000",
-    "cummulativeQuoteQty": "0.00000000",
-    "status": "NEW",
-    "timeInForce": "GTC",
-    "type": "LIMIT",
-    "side": "BUY",
-    "workingTime": 1655716096505,
-    "selfTradePreventionMode": "NONE"
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 12
+    "id": "e2a85d9f-07a5-4f94-8d5f-789dc3deb097",
+    "status": 200,
+    "result": {
+        "symbol": "BTCUSDT",
+        "orderId": 12510053279,
+        "orderListId": -1,
+        "clientOrderId": "a097fe6304b20a7e4fc436",
+        "transactTime": 1655716096505,
+        "price": "0.10000000",
+        "origQty": "10.00000000",
+        "executedQty": "0.00000000",
+        "origQuoteOrderQty": "0.000000",
+        "cummulativeQuoteQty": "0.00000000",
+        "status": "NEW",
+        "timeInForce": "GTC",
+        "type": "LIMIT",
+        "side": "BUY",
+        "workingTime": 1655716096505,
+        "selfTradePreventionMode": "NONE"
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 4043
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 321
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 12
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 4043
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 321
+        }
+    ]
 }
 ```
 
+<a id="request-security"></a>
 ## 请求鉴权类型
 
-* 每个函数都有自己的鉴权类型，鉴权类型决定了访问时应当进行何种鉴权。
-  * 鉴权类型会在本文档中各个函数名称旁声明。比如 [下新的订单 (TRADE)](#order-place)。
-  * 如果没有特殊声明即默认为 NONE
+* 每个方法都有一个鉴权类型，指示所需的 API 密钥权限，显示在方法名称旁边（例如，[下新订单 (TRADE)](#order-place)）。
+* 如果未指定，则鉴权类型为 `NONE`。
+* 除了为 `NONE` 外，所有具有鉴权类型的方法均视为 `SIGNED` 请求（即包含 `signature`），[listenKey 管理](#user-data-stream-requests) 除外。
+* 具有鉴权类型的方法需要提供有效的 API 密钥并验证通过。
+  * API 密钥可在您的 Binance 账户的 [API 管理](https://www.binance.com/en/support/faq/360002502072) 页面创建。
+  * **API 密钥和密钥对均为敏感信息，切勿与他人分享。** 如果发现账户有异常活动，请立即撤销所有密钥并联系 Binance 支持。
+* API 密钥可配置为仅允许访问某些鉴权类型。
+  * 例如，您可以拥有具有 `TRADE` 权限的 API 密钥用于交易，
+    同时使用具有 `USER_DATA` 权限的另一个 API 密钥来监控订单状态。
+  * 默认情况下，API 密钥无法进行 `TRADE`，您需要先在 API 管理中启用交易权限。
 
-鉴权类型 | API key | 签名 | 描述
-------------- | -------- | --------- | ------------
-`NONE`        |          |           | 公开市场数据
-`TRADE`       | required | required  | 在交易所交易，下单和取消订单
-`USER_DATA`   | required | required  | 私人账户信息，例如订单状态和交易历史
-`USER_STREAM` | required |           | 管理用户数据流订阅
-`MARKET_DATA` | required |           | 历史市场数据访问
+鉴权类型        |  描述
+------------- |  ------------
+`NONE`        |  公开市场数据
+`TRADE`       |  在交易所交易，下单和取消订单
+`USER_DATA`   |  私人账户信息，例如订单状态和交易历史
+`USER_STREAM` |  管理用户数据流订阅
 
-* 函数鉴权需要指定和验证有效的 API key。
-  * API key 可以在币安账户的 [API 管理](https://www.binance.com/zh-CN/support/faq/%E5%A6%82%E4%BD%95%E5%88%9B%E5%BB%BAapi-360002502072) 页面创建。
-  * **API key和密钥都是大小写敏感的。** 切勿与任何人共享它们。
-    如果您发现您的账户有异常活动，请立即撤销所有keys并联系币安客服。
-* API key 可以配置为仅允许访问某些类型的函数鉴权。
-  * 例如，可以拥有一个 API key 有 `TRADE` 的权限进行交易，同时使用另一个 API key 有 `USER_DATA` 的权限来监控您的订单状态。
-  * 默认情况下，API key 不能 `交易`。您需要先在 API 管理中开通交易权限。
-* `TRADE` 和 `USER_DATA` 请求也称为 `SIGNED` 请求。
-
-### SIGNED (TRADE 和 USER_DATA) 请求鉴权
-
+### 需要签名的请求
 * 为了授权请求，`SIGNED` 请求必须带 `signature` 参数。
-* 请参考 [签名请求示例（HMAC）](#hmac), [签名请求示例（RSA）](#rsa) 和 [SIGNED 请求示例 (Ed25519)](#ed25519) 理解如何计算签名。
 
+#### 签名区分大小写
+
+* **HMAC：** 使用 HMAC 生成的签名**不区分大小写**。这意味着无论字母大小写如何，签名字符串都可以被验证。
+* **RSA：** 使用 RSA 生成的签名**区分大小写**。
+* **Ed25519：** 使用 Ed25519 生成的签名也**区分大小写**。
+
+<a id="timingsecurity"></a>
 
 ### 时间同步安全
 
-* `SIGNED` 请求也必须发 `timestamp` 参数，其值应当是请求发送时刻的 unix 时间戳(毫秒)。
-* 还可以发送一个可选参数 `recvWindow`，指定请求保持有效的时间。
-  * 如果 `recvWindow` 未发送，**默认为5000毫秒**。
-  * 最大 `recvWindow` 为60000毫秒。
+* `SIGNED` 请求还需要一个 `timestamp` 参数，该参数应为当前时间戳，单位为毫秒或微秒。（参见 [通用 API 信息](#general-api-information)）
+* 另一个可选参数 `recvWindow`，用以指定请求的有效期，只能以毫秒为单位。
+  * `recvWindow` 扩展为三位小数（例如 6000.346），以便可以指定微秒。
+  * 如果未发送 `recvWindow`，则 **默认为 5000 毫秒**。
+  * `recvWindow` 的最大值为 60000 毫秒。
+* 请求处理逻辑如下：
 
-* 请求处理逻辑:
-
-  ```javascript
-  if (timestamp < (serverTime + 1000) && (serverTime - timestamp) <= recvWindow) {
-    // 处理请求
+```javascript
+serverTime = getCurrentTime()
+if (timestamp < (serverTime + 1 second) && (serverTime - timestamp) <= recvWindow) {
+  // 开始处理请求
+  serverTime = getCurrentTime()
+  if (serverTime - timestamp) <= recvWindow {
+    // 将请求转发到撮合引擎
   } else {
     // 拒绝请求
   }
-  ```
+  // 结束处理请求
+} else {
+  // 拒绝请求
+}
+```
 
 **关于交易时效性** 互联网状况并不完全稳定可靠，因此你的程序本地到币安服务器的时延会有抖动, 这是我们设置 `recvWindow` 的目所在。如果你从事高频交易，对交易时效性有较高的要求，可以灵活设置 `recvWindow` 以达到你的要求。
 
@@ -539,106 +574,181 @@ API 有多种频率限制间隔。
 
 ### SIGNED 请求示例 (HMAC)
 
-这是有关如何用 HMAC secret key 签署请求的分步指南。
+这是有关如何用一个 HMAC secret key 签署请求的分步指南。
 
 示例 API key 和 secret key：
 
 Key          | Value
 ------------ | ------------
-apiKey       | `vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A`
-secretKey    | `NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0j`
+`apiKey`       | `vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A`
+`secretKey`    | `NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0j`
 
-**警告：请勿与任何人共享您的私钥。**
+**警告：请勿与任何人分享您的 API 密钥和秘钥。**
 
-示例密钥仅供参考。
+此处提供的示例密钥仅用于示范说明目的。
+
+交易对名称完全由 ASCII 字符组成的请求示例：
 
 请求示例：
 
 ```json
 {
-  "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
-  "method": "order.place",
-  "params": {
-    "symbol":           "BTCUSDT",
-    "side":             "SELL",
-    "type":             "LIMIT",
-    "timeInForce":      "GTC",
-    "quantity":         "0.01000000",
-    "price":            "52000.00",
-    "newOrderRespType": "ACK",
-    "recvWindow":       100,
-    "timestamp":        1645423376532,
-    "apiKey":           "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature":        "------ 未填写 ------"
-  }
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "SELL",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "0.01000000",
+        "price": "52000.00",
+        "newOrderRespType": "ACK",
+        "recvWindow": 100,
+        "timestamp": 1645423376532,
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "------ 未填写 ------"
+    }
 }
 ```
 
-如您所见，目前缺少 `signature` 参数。
+交易对名称包含非 ASCII 字符的请求示例：
+
+```json
+{
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "１２３４５６",
+        "side": "BUY",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "0.01000000",
+        "price": "0.10000000",
+        "recvWindow": 5000,
+        "timestamp": 1645423376532,
+        "apiKey": "4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO",
+        "signature": "------ FILL ME ------"
+    }
+}
+```
 
 **第一步：创建签名内容**
 
-除了 `signature` 之外，获取所有请求 `params`，然后按名称按字母顺序进行排序：
+除了 `signature` 之外，获取所有请求 `params`，然后**按参数名称的字母顺序对它们进行排序**：
+
+对于第一组示例参数（仅限 ASCII 字符）：
 
 参数              | 取值
 ---------------- | ------------
-apiKey           | vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A
-newOrderRespType | ACK
-price            | 52000.00
-quantity         | 0.01000000
-recvWindow       | 100
-side             | SELL
-symbol           | BTCUSDT
-timeInForce      | GTC
-timestamp        | 1645423376532
-type             | LIMIT
+`apiKey`           | vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A
+`price`            | 52000.00
+`quantity`         | 0.01000000
+`recvWindow`       | 100
+`side`             | SELL
+`symbol`           | BTCUSDT
+`timeInForce`      | GTC
+`timestamp`        | 1645423376532
+`type`             | LIMIT
 
-将参数格式化为 `参数=取值` 对并用 `&` 分隔每个参数：
+对于第二组示例参数（包含一些 Unicode 字符）：
 
-签名效载荷示例：
+参数           | 取值
+------------  | ------------
+`apiKey`      | vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A
+`price`       | 0.10000000
+`quantity`    | 1.00000000
+`recvWindow`  | 5000
+`side`        | BUY
+`symbol`      | １２３４５６
+`timeInForce` | GTC
+`timestamp`   | 1645423376532
+`type`        | LIMIT
+
+将参数格式化为 `参数=取值` 对并用 `&` 分隔每个参数对。数值需要采用 UTF-8 编码。
+
+对于第一组示例参数（仅限 ASCII 字符），签名有效负载将如下所示：
+
+```console
+apiKey=vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A&price=52000.00&quantity=0.01000000&recvWindow=100&side=SELL&symbol=BTCUSDT&timeInForce=GTC&timestamp=1645423376532&type=LIMIT
 ```
-apiKey=vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A&newOrderRespType=ACK&price=52000.00&quantity=0.01000000&recvWindow=100&side=SELL&symbol=BTCUSDT&timeInForce=GTC&timestamp=1645423376532&type=LIMIT
+
+对于第二组示例参数（包含一些 Unicode 字符），签名有效负载将如下所示：
+
+```console
+apiKey=vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A&price=0.10000000&quantity=1.00000000&recvWindow=5000&side=BUY&symbol=１２３４５６&timeInForce=GTC&timestamp=1645423376532&type=LIMIT
 ```
 
 **第二步：计算签名**
 
-1. 将 `secretKey` 解释为 ASCII 数据，将其用作 HMAC-SHA-256 的 key。
-2. 将签名有效负载签名为 ASCII 数据。
-3. 将 HMAC-SHA-256 输出编码为 hex string。
+1. 使用 API 密钥中的 `secretKey` 作为 HMAC-SHA-256 算法的签名密钥。
+2. 对步骤 1 中构建的签名 payload 进行签名。
+3. 将 HMAC-SHA-256 的输出编码为十六进制字符串。
 
-请注意，`apiKey`、`secretKey` 和有效负载是**大小写敏感的**。
-生成的签名值是不区分大小写的。
+请注意，`apiKey`、`secretKey` 和有效负载是**大小写敏感的**。而生成的签名值是不区分大小写的。
 
 可以使用 OpenSSL 交叉检查您的签名算法实现：
 
+对于第一组示例参数（仅限 ASCII 字符）：
+
 ```console
-$ echo -n 'apiKey=vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A&newOrderRespType=ACK&price=52000.00&quantity=0.01000000&recvWindow=100&side=SELL&symbol=BTCUSDT&timeInForce=GTC&timestamp=1645423376532&type=LIMIT' \
+$ echo -n 'apiKey=vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A&price=52000.00&quantity=0.01000000&recvWindow=100&side=SELL&symbol=BTCUSDT&timeInForce=GTC&timestamp=1645423376532&type=LIMIT' \
   | openssl dgst -hex -sha256 -hmac 'NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0j'
 
-cc15477742bd704c29492d96c7ead9414dfd8e0ec4a00f947bb5bb454ddbd08a
+aa1b5712c094bc4e57c05a1a5c1fd8d88dcd628338ea863fec7b88e59fe2db24
+```
+
+对于第二组示例参数（包含一些 Unicode 字符）：
+
+```console
+$ echo -n 'apiKey=vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A&price=0.10000000&quantity=1.00000000&recvWindow=5000&side=BUY&symbol=１２３４５６&timeInForce=GTC&timestamp=1645423376532&type=LIMIT' \
+  | openssl dgst -hex -sha256 -hmac 'NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0j'
+
+b33892ae8e687c939f4468c6268ddd4c40ac1af18ad19a064864c47bae0752cd
 ```
 
 **第三步：添加 `signature` 到 `params` 中**
 
-最后，使用生成的签名完成请求：
+通过在对请求中添加 `signature` 参数和签名字串来完成请求。
+
+对于第一组示例参数（仅限 ASCII 字符）：
 
 ```json
 {
-  "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
-  "method": "order.place",
-  "params": {
-    "symbol":           "BTCUSDT",
-    "side":             "SELL",
-    "type":             "LIMIT",
-    "timeInForce":      "GTC",
-    "quantity":         "0.01000000",
-    "price":            "52000.00",
-    "newOrderRespType": "ACK",
-    "recvWindow":       100,
-    "timestamp":        1645423376532,
-    "apiKey":           "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature":        "cc15477742bd704c29492d96c7ead9414dfd8e0ec4a00f947bb5bb454ddbd08a"
-  }
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "SELL",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "0.01000000",
+        "price": "52000.00",
+        "recvWindow": 100,
+        "timestamp": 1645423376532,
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "aa1b5712c094bc4e57c05a1a5c1fd8d88dcd628338ea863fec7b88e59fe2db24"
+    }
+}
+```
+
+对于第二组示例参数（包含一些 Unicode 字符）：
+
+```json
+{
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "１２３４５６",
+        "side": "BUY",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "1.00000000",
+        "price": "0.10000000",
+        "recvWindow": 5000,
+        "timestamp": 1645423376532,
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "b33892ae8e687c939f4468c6268ddd4c40ac1af18ad19a064864c47bae0752cd"
+    }
 }
 ```
 
@@ -646,98 +756,179 @@ cc15477742bd704c29492d96c7ead9414dfd8e0ec4a00f947bb5bb454ddbd08a
 
 ### SIGNED 请求示例 (RSA)
 
+这是有关如何用一个 RSA private key 签署请求的分步指南。
+
 Key          | Value
 ------------ | ------------
-apiKey       | `CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ`
+`apiKey`       | `CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ`
 
-对于这个例子，Private Key 将被引用为 `test-prv-key.pem`。
+这些示例假设私钥存储在文件 `test-prv-key.pem` 中。
 
-**警告：请勿与任何人共享您的私钥。** 示例密钥仅供参考。
+**警告：请勿与任何人分享您的 API 密钥和私钥。**
 
-请求例子：
+此处提供的示例密钥仅用于示范说明目的。
+
+交易对名称完全由 ASCII 字符组成的请求示例：
 
 ```json
 {
-  "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
-  "method": "order.place",
-  "params": {
-    "symbol":           "BTCUSDT",
-    "side":             "SELL",
-    "type":             "LIMIT",
-    "timeInForce":      "GTC",
-    "quantity":         "0.01000000",
-    "price":            "52000.00",
-    "newOrderRespType": "ACK",
-    "recvWindow":       100,
-    "timestamp":        1645423376532,
-    "apiKey":           "CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ",
-    "signature":        "------ FILL ME ------"
-  }
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "SELL",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "0.01000000",
+        "price": "52000.00",
+        "recvWindow": 100,
+        "timestamp": 1645423376532,
+        "apiKey": "CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ",
+        "signature": "------ FILL ME ------"
+    }
 }
 ```
 
-**第一步：计算 Payload**
+交易对名称包含非 ASCII 字符的请求示例：
 
-除了 `signature`，获取请求的所有其它 `params`，然后按名称字母顺序对它们进行排序：
-
-参数              | 取值
----------------- | ------------
-apiKey           | CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ
-newOrderRespType | ACK
-price            | 52000.00
-quantity         | 0.01000000
-recvWindow       | 100
-side             | SELL
-symbol           | BTCUSDT
-timeInForce      | GTC
-timestamp        | 1645423376532
-type             | LIMIT
-
-将参数格式化为 `参数=取值` 对并用 `&` 分隔每个参数：
-
+```json
+{
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "１２３４５６",
+        "side": "BUY",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "0.01000000",
+        "price": "0.10000000",
+        "recvWindow": 5000,
+        "timestamp": 1645423376532,
+        "apiKey": "CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ",
+        "signature": "------ FILL ME ------"
+    }
+}
 ```
-apiKey=CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ&newOrderRespType=ACK&price=52000.00&quantity=0.01000000&recvWindow=100&side=SELL&symbol=BTCUSDT&timeInForce=GTC&timestamp=1645423376532&type=LIMIT
+
+**第一步：创建签名内容**
+
+除了 `signature`，获取请求的所有其它 `params`，然后**按参数名称的字母顺序对它们进行排序**：
+
+对于第一组示例参数（仅限 ASCII 字符）：
+
+参数           | 取值
+---------------- | ------------
+`apiKey`           | CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ
+`price`            | 52000.00
+`quantity`         | 0.01000000
+`recvWindow`       | 100
+`side`             | SELL
+`symbol`           | BTCUSDT
+`timeInForce`      | GTC
+`timestamp`        | 1645423376532
+`type`             | LIMIT
+
+对于第二组示例参数（包含一些 Unicode 字符）：
+
+参数           | 取值
+------------ | ------------
+`apiKey` | CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ
+`price` | 0.10000000
+`quantity` | 1.00000000
+`recvWindow` | 5000
+`side` | BUY
+`symbol` | １２３４５６
+`timeInForce` | GTC
+`timestamp` | 1645423376532
+`type` | LIMIT
+
+将参数格式化为 `参数=取值` 对并用 `&` 分隔每个参数对。数值需要采用 UTF-8 编码。
+
+对于第一组示例参数（仅限 ASCII 字符），签名有效负载将如下所示：
+
+```console
+apiKey=CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ&price=52000.00&quantity=0.01000000&recvWindow=100&side=SELL&symbol=BTCUSDT&timeInForce=GTC&timestamp=1645423376532&type=LIMIT
+```
+
+对于第二组示例参数（包含一些 Unicode 字符），签名有效负载将如下所示：
+
+```console
+apiKey=CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ&price=0.10000000&quantity=1.00000000&recvWindow=5000&side=BUY&symbol=１２３４５６&timeInForce=GTC&timestamp=1645423376532&type=LIMIT
 ```
 
 **第二步：计算签名**
 
-1. 将签名有效负载编码为 ASCII 数据。
-2. 使用带有 SHA-256 hash 函数的 RSASSA-PKCS1-v1_5 算法对 payload 进行签名。
-3. 将输出编码为 base64 string。
+1. 使用 RSASSA-PKCS1-v1_5 算法和 SHA-256 哈希函数对步骤 1 中构造的签名有效载荷的 UTF-8 字节进行签名。
+2. 将输出编码为 base64。
 
-请注意，`apiKey`, payload 和生成的签名值都是**大小写敏感**的。
+请注意，`apiKey`, payload 和生成的`签名值`都是**大小写敏感**的。
 
 您可以使用 OpenSSL 交叉检查您的签名算法：
 
+对于第一组示例参数（仅限 ASCII 字符）：
+
 ```console
-$ echo -n 'apiKey=CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ&newOrderRespType=ACK&price=52000.00&quantity=0.01000000&recvWindow=100&side=SELL&symbol=BTCUSDT&timeInForce=GTC&timestamp=1645423376532&type=LIMIT' \
-  | openssl dgst -sha256 -sign test-prv-key.pem \
+$ echo -n 'apiKey=CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ&price=52000.00&quantity=0.01000000&recvWindow=100&side=SELL&symbol=BTCUSDT&timeInForce=GTC&timestamp=1645423376532&type=LIMIT' \
+  | openssl dgst -sha256 -sign test-rsa-prv.pem \
   | openssl enc -base64 -A
 
 OJJaf8C/3VGrU4ATTR4GiUDqL2FboSE1Qw7UnnoYNfXTXHubIl1iaePGuGyfct4NPu5oVEZCH4Q6ZStfB1w4ssgu0uiB/Bg+fBrRFfVgVaLKBdYHMvT+ljUJzqVaeoThG9oXlduiw8PbS9U8DYAbDvWN3jqZLo4Z2YJbyovyDAvDTr/oC0+vssLqP7NmlNb3fF3Bj7StmOwJvQJTbRAtzxK5PP7OQe+0mbW+D7RqVkUiSswR8qJFWTeSe4nXXNIdZdueYhF/Xf25L+KitJS5IHdIHcKfEw3MQzHFb2ZsGWkjDQwxkwr7Noi0Zaa+gFtxCuatGFm9dFIyx217pmSHtA==
 ```
 
+对于第二组示例参数（包含一些 Unicode 字符）：
+
+```console
+$ echo -n 'apiKey=CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ&price=0.10000000&quantity=1.00000000&recvWindow=5000&side=BUY&symbol=１２３４５６&timeInForce=GTC&timestamp=1645423376532&type=LIMIT' \
+  | openssl dgst -sha256 -sign test-rsa-prv.pem \
+  | openssl enc -base64 -A
+
+F3o/79Ttvl2cVYGPfBOF3oEOcm5QcYmTYWpdVIrKve5u+8paMNDAdUE+teqMxFM9HcquetGcfuFpLYtsQames5bDx/tskGM76TWW8HaM+6tuSYBSFLrKqChfA9hQGLYGjAiflf1YBnDhY+7vNbJFusUborNOloOj+ufzP5q42PvI3H0uNy3W5V3pyfXpDGCBtfCYYr9NAqA4d+AQfyllL/zkO9h9JSdozN49t0/hWGoD2dWgSO0Je6MytKEvD4DQXGeqNlBTB6tUXcWnRW+FcaKZ4KYqnxCtb1u8rFXUYgFykr2CbcJLSmw6ydEJ3EZ/NaZopRr+cU0W2m0HZ3qucw==
+```
+
 **第三步：在请求的 `params` 参数添加签名值**
 
-最后，使用生成的签名完成请求：
+通过在对请求中添加 `signature` 参数和签名字串来完成请求。
+
+对于第一组示例参数（仅限 ASCII 字符）：
 
 ```json
 {
-  "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
-  "method": "order.place",
-  "params": {
-    "symbol":           "BTCUSDT",
-    "side":             "SELL",
-    "type":             "LIMIT",
-    "timeInForce":      "GTC",
-    "quantity":         "0.01000000",
-    "price":            "52000.00",
-    "newOrderRespType": "ACK",
-    "recvWindow":       100,
-    "timestamp":        1645423376532,
-    "apiKey":           "CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ",
-    "signature":        "OJJaf8C/3VGrU4ATTR4GiUDqL2FboSE1Qw7UnnoYNfXTXHubIl1iaePGuGyfct4NPu5oVEZCH4Q6ZStfB1w4ssgu0uiB/Bg+fBrRFfVgVaLKBdYHMvT+ljUJzqVaeoThG9oXlduiw8PbS9U8DYAbDvWN3jqZLo4Z2YJbyovyDAvDTr/oC0+vssLqP7NmlNb3fF3Bj7StmOwJvQJTbRAtzxK5PP7OQe+0mbW+D7RqVkUiSswR8qJFWTeSe4nXXNIdZdueYhF/Xf25L+KitJS5IHdIHcKfEw3MQzHFb2ZsGWkjDQwxkwr7Noi0Zaa+gFtxCuatGFm9dFIyx217pmSHtA=="
-  }
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "SELL",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "0.01000000",
+        "price": "52000.00",
+        "newOrderRespType": "ACK",
+        "recvWindow": 100,
+        "timestamp": 1645423376532,
+        "apiKey": "CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ",
+        "signature": "OJJaf8C/3VGrU4ATTR4GiUDqL2FboSE1Qw7UnnoYNfXTXHubIl1iaePGuGyfct4NPu5oVEZCH4Q6ZStfB1w4ssgu0uiB/Bg+fBrRFfVgVaLKBdYHMvT+ljUJzqVaeoThG9oXlduiw8PbS9U8DYAbDvWN3jqZLo4Z2YJbyovyDAvDTr/oC0+vssLqP7NmlNb3fF3Bj7StmOwJvQJTbRAtzxK5PP7OQe+0mbW+D7RqVkUiSswR8qJFWTeSe4nXXNIdZdueYhF/Xf25L+KitJS5IHdIHcKfEw3MQzHFb2ZsGWkjDQwxkwr7Noi0Zaa+gFtxCuatGFm9dFIyx217pmSHtA=="
+    }
+}
+```
+
+对于第二组示例参数（包含一些 Unicode 字符）：
+
+```json
+{
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "１２３４５６",
+        "side": "SELL",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "1.00000000",
+        "price": "0.10000000",
+        "recvWindow": 5000,
+        "timestamp": 1645423376532,
+        "apiKey": "CAvIjXy3F44yW6Pou5k8Dy1swsYDWJZLeoK2r8G4cFDnE9nosRppc2eKc1T8TRTQ",
+        "signature": "F3o/79Ttvl2cVYGPfBOF3oEOcm5QcYmTYWpdVIrKve5u+8paMNDAdUE+teqMxFM9HcquetGcfuFpLYtsQames5bDx/tskGM76TWW8HaM+6tuSYBSFLrKqChfA9hQGLYGjAiflf1YBnDhY+7vNbJFusUborNOloOj+ufzP5q42PvI3H0uNy3W5V3pyfXpDGCBtfCYYr9NAqA4d+AQfyllL/zkO9h9JSdozN49t0/hWGoD2dWgSO0Je6MytKEvD4DQXGeqNlBTB6tUXcWnRW+FcaKZ4KYqnxCtb1u8rFXUYgFykr2CbcJLSmw6ydEJ3EZ/NaZopRr+cU0W2m0HZ3qucw=="
+    }
 }
 ```
 
@@ -745,22 +936,186 @@ OJJaf8C/3VGrU4ATTR4GiUDqL2FboSE1Qw7UnnoYNfXTXHubIl1iaePGuGyfct4NPu5oVEZCH4Q6ZStf
 
 ### SIGNED 请求示例 (Ed25519)
 
-**我们建议使用 Ed25519 API keys**，因为它在所有受支持的 API key 类型中提供最佳性能和安全性。
+**我们强烈建议使用 Ed25519 API keys，因为它在所有受支持的 API key 类型中提供最佳性能和安全性。**
+
+这是有关如何用一个 Ed25519 private key 签署请求的分步指南。
+
+Key          | Value
+------------ | ------------
+`apiKey`       | `4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO`
+
+这些示例假设私钥存储在文件 `test-ed25519-prv.pem` 中。
+
+**警告：请勿与任何人分享您的 API 密钥和私钥。**
+
+此处提供的示例密钥仅用于示范说明目的。
+
+交易对名称完全由 ASCII 字符组成的请求示例：
+
+```json
+{
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "SELL",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "0.01000000",
+        "price": "52000.00",
+        "recvWindow": 100,
+        "timestamp": 1645423376532,
+        "apiKey": "4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO",
+        "signature": "------ FILL ME ------"
+    }
+}
+```
+
+交易对名称包含非 ASCII 字符的请求示例：
+
+```json
+{
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "１２３４５６",
+        "side": "BUY",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "0.01000000",
+        "price": "0.10000000",
+        "recvWindow": 5000,
+        "timestamp": 1645423376532,
+        "apiKey": "4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO",
+        "signature": "------ FILL ME ------"
+    }
+}
+```
+
+**第一步：创建签名内容**
+
+除了 `signature`，获取请求的所有其它 `params`，然后**按参数名称的字母顺序对它们进行排序**：
+
+对于第一组示例参数（仅限 ASCII 字符）：
+
+参数              | 取值
+---------------- | ------------
+`apiKey`           | 4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO
+`price`            | 52000.00
+`quantity`         | 0.01000000
+`recvWindow`       | 100
+`side`             | SELL
+`symbol`           | BTCUSDT
+`timeInForce`      | GTC
+`timestamp`        | 1645423376532
+`type`             | LIMIT
+
+对于第二组示例参数（包含一些 Unicode 字符）：
 
 参数           | 取值
 ------------  | ------------
-`symbol`      | BTCUSDT
+`apiKey`      | 4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO
+`price`       | 0.20000000
+`quantity`    | 1.00000000
+`recvWindow`  | 5000
 `side`        | SELL
-`type`        | LIMIT
+`symbol`      | １２３４５６
 `timeInForce` | GTC
-`quantity`    | 1
-`price`       | 0.2
 `timestamp`   | 1668481559918
+`type`        | LIMIT
 
-下面的 Python 示例代码能说明如何使用 Ed25519 key 对 payload 进行签名。
+将参数格式化为 `参数=取值` 对并用 `&` 分隔每个参数对。数值需要采用 UTF-8 编码。
+
+对于第一组示例参数（仅限 ASCII 字符），签名有效负载将如下所示：
+
+```console
+apiKey=4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO&price=52000.00&quantity=0.01000000&recvWindow=100&side=SELL&symbol=BTCUSDT&timeInForce=GTC&timestamp=1645423376532&type=LIMIT
+```
+
+对于第二组示例参数（包含一些 Unicode 字符），签名有效负载将如下所示：
+```console
+apiKey=4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO&price=0.10000000&quantity=1.00000000&recvWindow=5000&side=BUY&symbol=１２３４５６&timeInForce=GTC&timestamp=1645423376532&type=LIMIT
+```
+
+**第二步：计算签名**
+
+1. 使用 Ed25519 密钥对步骤 1 中构造的签名有效载荷的 UTF-8 字节进行签名。
+2. 将输出编码为 base64。
+
+请注意，`apiKey`, payload 和生成的`签名值`都是**大小写敏感**的。
+
+您可以使用 OpenSSL 交叉检查您的签名算法：
+
+对于第一组示例参数（仅限 ASCII 字符）：
+
+```console
+echo -n "apiKey=4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO&price=52000.00&quantity=0.01000000&recvWindow=100&side=SELL&symbol=BTCUSDT&timeInForce=GTC&timestamp=1645423376532&type=LIMIT" \
+  | openssl dgst -sign ./test-ed25519-prv.pem \
+  | openssl enc -base64 -A
+
+EocljwPl29jDxWYaaRaOo4pJ9wEblFbklJvPugNscLLuKd5vHM2grWjn1z+rY0aJ7r/44enxHL6mOAJuJ1kqCg==
+```
+
+对于第二组示例参数（包含一些 Unicode 字符）：
+
+```console
+echo -n "apiKey=4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO&price=0.10000000&quantity=1.00000000&recvWindow=5000&side=BUY&symbol=１２３４５６&timeInForce=GTC&timestamp=1645423376532&type=LIMIT" \
+  | openssl dgst -sign ./test-ed25519-prv.pem \
+  | openssl enc -base64 -A
+
+dtNHJeyKry+cNjiGv+sv5kynO9S40tf8k7D5CfAEQAp0s2scunZj+ovJdz2OgW8XhkB9G3/HmASkA9uY9eyFCA==
+```
+
+**第三步：在请求的 `params` 参数添加签名值**
+
+对于第一组示例参数（仅限 ASCII 字符）：
+
+```json
+{
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "SELL",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "0.01000000",
+        "price": "52000.00",
+        "newOrderRespType": "ACK",
+        "recvWindow": 100,
+        "timestamp": 1645423376532,
+        "apiKey": "4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO",
+        "signature": "EocljwPl29jDxWYaaRaOo4pJ9wEblFbklJvPugNscLLuKd5vHM2grWjn1z+rY0aJ7r/44enxHL6mOAJuJ1kqCg=="
+    }
+}
+```
+
+对于第二组示例参数（包含一些 Unicode 字符）：
+
+```json
+{
+    "id": "4885f793-e5ad-4c3b-8f6c-55d891472b71",
+    "method": "order.place",
+    "params": {
+        "symbol": "１２３４５６",
+        "side": "SELL",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": "1.00000000",
+        "price": "0.10000000",
+        "recvWindow": 5000,
+        "timestamp": 1645423376532,
+        "apiKey": "4yNzx3yWC5bS6YTwEkSRaC0nRmSQIIStAUOh1b6kqaBrTLIhjCpI5lJH8q8R8WNO",
+        "signature": "dtNHJeyKry+cNjiGv+sv5kynO9S40tf8k7D5CfAEQAp0s2scunZj+ovJdz2OgW8XhkB9G3/HmASkA9uY9eyFCA=="
+    }
+}
+```
+
+下面的 Python 示例代码能执行上述所有步骤。
 
 ```python
 #!/usr/bin/env python3
+
 import base64
 import time
 import json
@@ -770,40 +1125,53 @@ from websocket import create_connection
 # 设置身份验证：
 API_KEY='替换成您的 API Key'
 PRIVATE_KEY_PATH='test-prv-key.pem'
+
 # 加载 private key。
-# 在这个例子中，private key 没有加密，但我们建议使用强密码以提高安全性。
+# 在这个例子中，private key 没有加密
+# 但我们建议使用强密码以提高安全性。
 with open(PRIVATE_KEY_PATH, 'rb') as f:
-    private_key = load_pem_private_key(data=f.read(), password=None)
+  private_key = load_pem_private_key(data=f.read(), password=None)
+
 # 设置请求参数：
 params = {
-    'apiKey':        API_KEY,
-    'symbol':       'BTCUSDT',
+    'apiKey':       API_KEY,
+    'symbol':       '１２３４５６',
     'side':         'SELL',
     'type':         'LIMIT',
     'timeInForce':  'GTC',
     'quantity':     '1.0000000',
-    'price':        '0.20'
+    'price':        '0.10000000',
+    'recvWindow':   5000
 }
+
 # 参数中加时间戳：
-timestamp = int(time.time() * 1000) # 以毫秒为单位的 UNIX 时间戳
+timestamp = int(time.time() * 1000) # UNIX timestamp in milliseconds
 params['timestamp'] = timestamp
-# 参数中加签名：
-payload = '&'.join([f'{param}={value}' for param, value in sorted(params.items())])
-signature = base64.b64encode(private_key.sign(payload.encode('ASCII')))
+
+# 按参数名称的字母顺序进行排序
+params = dict(sorted(params.items()))
+
+# 计算签名有效负载
+payload = '&'.join([f"{k}={v}" for k,v in params.items()]) # no percent encoding here!
+
+# 对请求进行签名
+signature = base64.b64encode(private_key.sign(payload.encode('UTF-8')))
 params['signature'] = signature.decode('ASCII')
+
 # 发送请求：
 request = {
     'id': 'my_new_order',
     'method': 'order.place',
     'params': params
 }
-ws = create_connection('wss://ws-api.binance.com:443/ws-api/v3')
+
+ws = create_connection("wss://ws-api.binance.com:443/ws-api/v3")
 ws.send(json.dumps(request))
 result =  ws.recv()
 ws.close()
+
 print(result)
 ```
-
 
 ## 会话身份验证
 
@@ -831,12 +1199,12 @@ print(result)
 
 ```javascript
 {
-  "id": null,
-  "status": 401,
-  "error": {
-    "code": -2015,
-    "msg": "Invalid API-key, IP, or permissions for action."
-  }
+    "id": null,
+    "status": 401,
+    "error": {
+        "code": -2015,
+        "msg": "Invalid API-key, IP, or permissions for action."
+    }
 }
 ```
 
@@ -869,19 +1237,12 @@ WebSocket连接只能通过一个API密钥进行身份验证。
 
 ## 常用请求信息
 
-### 术语
-
-这些术语将在整个文档中使用，因此特别建议新用户阅读。
-
-* `base asset` 是指作为交易对中的 `quantity` 资产。对于交易对 BTCUSDT，BTC 将是 `base asset`。
-* `quote asset` 是指作为交易对中的 `price` 资产。对于交易对 BTCUSDT，USDT 将是 `quote asset`。
-
 ### 测试连通性
 
 ```javascript
 {
-  "id": "922bcc6e-9de8-440d-9e84-7c80933a8d0d",
-  "method": "ping"
+    "id": "922bcc6e-9de8-440d-9e84-7c80933a8d0d",
+    "method": "ping"
 }
 ```
 
@@ -905,18 +1266,18 @@ NONE
 **响应:**
 ```javascript
 {
-  "id": "922bcc6e-9de8-440d-9e84-7c80933a8d0d",
-  "status": 200,
-  "result": {},
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "id": "922bcc6e-9de8-440d-9e84-7c80933a8d0d",
+    "status": 200,
+    "result": {},
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -924,8 +1285,8 @@ NONE
 
 ```javascript
 {
-  "id": "187d3cb2-942d-484c-8271-4e2141bbadb1",
-  "method": "time"
+    "id": "187d3cb2-942d-484c-8271-4e2141bbadb1",
+    "method": "time"
 }
 ```
 
@@ -943,20 +1304,20 @@ NONE
 **响应:**
 ```javascript
 {
-  "id": "187d3cb2-942d-484c-8271-4e2141bbadb1",
-  "status": 200,
-  "result": {
-    "serverTime": 1656400526260
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "id": "187d3cb2-942d-484c-8271-4e2141bbadb1",
+    "status": 200,
+    "result": {
+        "serverTime": 1656400526260
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -966,11 +1327,11 @@ NONE
 
 ```javascript
 {
-  "id": "5494febb-d167-46a2-996d-70533eb4d976",
-  "method": "exchangeInfo",
-  "params": {
-    "symbols": ["BNBBTC"]
-  }
+    "id": "5494febb-d167-46a2-996d-70533eb4d976",
+    "method": "exchangeInfo",
+    "params": {
+        "symbols": ["BNBBTC"]
+    }
 }
 ```
 
@@ -1042,120 +1403,112 @@ NONE
 **响应:**
 ```javascript
 {
-  "id": "5494febb-d167-46a2-996d-70533eb4d976",
-  "status": 200,
-  "result": {
-    "timezone": "UTC",
-    "serverTime": 1655969291181,
-    // 全局速率限制。请参阅 "速率限制" 部分。
-    "rateLimits": [
-      {
-        "rateLimitType": "REQUEST_WEIGHT",    // 速率限制类型: REQUEST_WEIGHT，ORDERS，CONNECTIONS
-        "interval": "MINUTE",                 // 速率限制间隔: SECOND，MINUTE，DAY
-        "intervalNum": 1,                     // 速率限制间隔乘数 (i.e.，"1 minute")
-        "limit": 6000                         // 每个间隔的速率限制
-      },
-      {
-        "rateLimitType": "ORDERS",
-        "interval": "SECOND",
-        "intervalNum": 10,
-        "limit": 50
-      },
-      {
-        "rateLimitType": "ORDERS",
-        "interval": "DAY",
-        "intervalNum": 1,
-        "limit": 160000
-      },
-      {
-        "rateLimitType": "CONNECTIONS",
-        "interval": "MINUTE",
-        "intervalNum": 5,
-        "limit": 300
-      }
-    ],
-    // 交易所级别过滤器在 "过滤器" 页面上进行了说明：
-    // https://github.com/binance/binance-spot-api-docs/blob/master/filters_CN.md
-    // 全部交易过滤器是可选的。
-    "exchangeFilters": [],
-    "symbols": [
-      {
-        "symbol": "BNBBTC",
-        "status": "TRADING",
-        "baseAsset": "BNB",
-        "baseAssetPrecision": 8,
-        "quoteAsset": "BTC",
-        "quotePrecision": 8,
-        "quoteAssetPrecision": 8,
-        "baseCommissionPrecision": 8,
-        "quoteCommissionPrecision": 8,
-        "orderTypes": [
-          "LIMIT",
-          "LIMIT_MAKER",
-          "MARKET",
-          "STOP_LOSS_LIMIT",
-          "TAKE_PROFIT_LIMIT"
+    "id": "5494febb-d167-46a2-996d-70533eb4d976",
+    "status": 200,
+    "result": {
+        "timezone": "UTC",
+        "serverTime": 1655969291181,
+        // 全局速率限制。请参阅 "速率限制" 部分。
+        "rateLimits": [
+            {
+                "rateLimitType": "REQUEST_WEIGHT",     // 速率限制类型: REQUEST_WEIGHT，ORDERS，CONNECTIONS
+                "interval": "MINUTE",                  // 速率限制间隔: SECOND，MINUTE，DAY
+                "intervalNum": 1,                      // 速率限制间隔乘数 (i.e.，"1 minute")
+                "limit": 6000                          // 每个间隔的速率限制
+            },
+            {
+                "rateLimitType": "ORDERS",
+                "interval": "SECOND",
+                "intervalNum": 10,
+                "limit": 50
+            },
+            {
+                "rateLimitType": "ORDERS",
+                "interval": "DAY",
+                "intervalNum": 1,
+                "limit": 160000
+            },
+            {
+                "rateLimitType": "CONNECTIONS",
+                "interval": "MINUTE",
+                "intervalNum": 5,
+                "limit": 300
+            }
         ],
-        "icebergAllowed": true,
-        "ocoAllowed": true,
-        "otoAllowed": true,
-        "quoteOrderQtyMarketAllowed": true,
-        "allowTrailingStop": true,
-        "cancelReplaceAllowed": true,
-        "isSpotTradingAllowed": true,
-        "isMarginTradingAllowed": true,
-        // 交易对过滤器在"过滤器"页面上进行了说明：
+        // 交易所级别过滤器在 "过滤器" 页面上进行了说明：
         // https://github.com/binance/binance-spot-api-docs/blob/master/filters_CN.md
-        // 全部交易对过滤器是可选的。
-        "filters": [
-          {
-            "filterType": "PRICE_FILTER",
-            "minPrice": "0.00000100",
-            "maxPrice": "100000.00000000",
-            "tickSize": "0.00000100"
-          },
-          {
-            "filterType": "LOT_SIZE",
-            "minQty": "0.00100000",
-            "maxQty": "100000.00000000",
-            "stepSize": "0.00100000"
-          }
-        ],
-        "permissions": [],
-        "permissionSets": [
-          [
-            "SPOT",
-            "MARGIN",
-            "TRD_GRP_004"
-          ]
-        ],
-        "defaultSelfTradePreventionMode": "NONE",
-        "allowedSelfTradePreventionModes": [
-          "NONE"
-        ]
-      }
-    ],
-    // 可选字段，仅当 SOR 可用时才会被显示出来。
-    // https://github.com/binance/binance-spot-api-docs/blob/master/faqs/sor_faq_CN.md
-    "sors": [
-      {
-        "baseAsset": "BTC",
+        // 全部交易过滤器是可选的。
+        "exchangeFilters": [],
         "symbols": [
-          "BTCUSDT",
-          "BTCUSDC"
+            {
+                "symbol": "BNBBTC",
+                "status": "TRADING",
+                "baseAsset": "BNB",
+                "baseAssetPrecision": 8,
+                "quoteAsset": "BTC",
+                "quotePrecision": 8,
+                "quoteAssetPrecision": 8,
+                "baseCommissionPrecision": 8,
+                "quoteCommissionPrecision": 8,
+                "orderTypes": [
+                    "LIMIT",
+                    "LIMIT_MAKER",
+                    "MARKET",
+                    "STOP_LOSS_LIMIT",
+                    "TAKE_PROFIT_LIMIT"
+                ],
+                "icebergAllowed": true,
+                "ocoAllowed": true,
+                "otoAllowed": true,
+                "opoAllowed": true,
+                "quoteOrderQtyMarketAllowed": true,
+                "allowTrailingStop": true,
+                "cancelReplaceAllowed": true,
+                "amendAllowed": false,
+                "pegInstructionsAllowed": true,
+                "isSpotTradingAllowed": true,
+                "isMarginTradingAllowed": true,
+                // 交易对过滤器在"过滤器"页面上进行了说明：
+                // https://github.com/binance/binance-spot-api-docs/blob/master/filters_CN.md
+                // 全部交易对过滤器是可选的。
+                "filters": [
+                    {
+                        "filterType": "PRICE_FILTER",
+                        "minPrice": "0.00000100",
+                        "maxPrice": "100000.00000000",
+                        "tickSize": "0.00000100"
+                    },
+                    {
+                        "filterType": "LOT_SIZE",
+                        "minQty": "0.00100000",
+                        "maxQty": "100000.00000000",
+                        "stepSize": "0.00100000"
+                    }
+                ],
+                "permissions": [],
+                "permissionSets": [["SPOT", "MARGIN", "TRD_GRP_004"]],
+                "defaultSelfTradePreventionMode": "NONE",
+                "allowedSelfTradePreventionModes": ["NONE"]
+            }
+        ],
+        // 可选字段，仅当 SOR 可用时才会被显示出来。
+        // https://github.com/binance/binance-spot-api-docs/blob/master/faqs/sor_faq_CN.md
+        "sors": [
+            {
+                "baseAsset": "BTC",
+                "symbols": ["BTCUSDT", "BTCUSDC"]
+            }
         ]
-      }
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 20
+        }
     ]
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 20
-    }
-  ]
 }
 ```
 
@@ -1165,12 +1518,12 @@ NONE
 
 ```javascript
 {
-  "id": "51e2affb-0aba-4821-ba75-f2625006eb43",
-  "method": "depth",
-  "params": {
-    "symbol": "BNBBTC",
-    "limit": 5
-  }
+    "id": "51e2affb-0aba-4821-ba75-f2625006eb43",
+    "method": "depth",
+    "params": {
+        "symbol": "BNBBTC",
+        "limit": 5
+    }
 }
 ```
 
@@ -1200,7 +1553,9 @@ NONE
 名称      | 类型    | 是否必需 | 描述
 --------- | ------- | --------- | -----------
 `symbol`  | STRING  | YES       |
-`limit`   | INT     | NO        | 默认 100; 最大值 5000
+`limit`   | INT     | NO        | 默认值： 100； 最大值： 5000
+`symbolStatus`|ENUM | NO        | 过滤具有此 `tradingStatus` 的交易对。<br/>如果状态不匹配，将返回错误 `-1220 交易对与状态不匹配`。<br/>有效值： `TRADING`, `HALT`, `BREAK`
+
 
 **数据源:**
 缓存
@@ -1208,66 +1563,39 @@ NONE
 **响应:**
 ```javascript
 {
-  "id": "51e2affb-0aba-4821-ba75-f2625006eb43",
-  "status": 200,
-  "result": {
-    "lastUpdateId": 2731179239,
-    // bid 水平从最高价到最低价排序。
-    "bids": [
-      [
-        "0.01379900",   // 价格
-        "3.43200000"    // 重量
-      ],
-      [
-        "0.01379800",
-        "3.24300000"
-      ],
-      [
-        "0.01379700",
-        "10.45500000"
-      ],
-      [
-        "0.01379600",
-        "3.82100000"
-      ],
-      [
-        "0.01379500",
-        "10.26200000"
-      ]
-    ],
-    // ask 水平从最低价到最高价排序。
-    "asks": [
-      [
-        "0.01380000",
-        "5.91700000"
-      ],
-      [
-        "0.01380100",
-        "6.01400000"
-      ],
-      [
-        "0.01380200",
-        "0.26800000"
-      ],
-      [
-        "0.01380300",
-        "0.33800000"
-      ],
-      [
-        "0.01380400",
-        "0.26800000"
-      ]
+    "id": "51e2affb-0aba-4821-ba75-f2625006eb43",
+    "status": 200,
+    "result": {
+        "lastUpdateId": 2731179239,
+        // bid 水平从最高价到最低价排序。
+        "bids": [
+            [
+                "0.01379900",     // 价格
+                "3.43200000"      // 重量
+            ],
+            ["0.01379800", "3.24300000"],
+            ["0.01379700", "10.45500000"],
+            ["0.01379600", "3.82100000"],
+            ["0.01379500", "10.26200000"]
+        ],
+        // ask 水平从最低价到最高价排序。
+        "asks": [
+            ["0.01380000", "5.91700000"],
+            ["0.01380100", "6.01400000"],
+            ["0.01380200", "0.26800000"],
+            ["0.01380300", "0.33800000"],
+            ["0.01380400", "0.26800000"]
+        ]
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 5
+        }
     ]
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 5
-    }
-  ]
 }
 ```
 
@@ -1276,12 +1604,12 @@ NONE
 
 ```javascript
 {
-  "id": "409a20bd-253d-41db-a6dd-687862a5882f",
-  "method": "trades.recent",
-  "params": {
-    "symbol": "BNBBTC",
-    "limit": 1
-  }
+    "id": "409a20bd-253d-41db-a6dd-687862a5882f",
+    "method": "trades.recent",
+    "params": {
+        "symbol": "BNBBTC",
+        "limit": 1
+    }
 }
 ```
 
@@ -1299,7 +1627,7 @@ NONE
 名称      | 类型    | 是否必需 | 描述
 --------- | ------- | --------- | -----------
 `symbol`  | STRING  | YES       |
-`limit`   | INT     | NO        | 默认 500; 最大值 1000
+`limit`   | INT     | NO        | 默认值： 500； 最大值： 1000
 
 **数据源:**
 缓存
@@ -1307,28 +1635,28 @@ NONE
 **响应:**
 ```javascript
 {
-  "id": "409a20bd-253d-41db-a6dd-687862a5882f",
-  "status": 200,
-  "result": [
-    {
-      "id": 194686783,
-      "price": "0.01361000",
-      "qty": "0.01400000",
-      "quoteQty": "0.00019054",
-      "time": 1660009530807,
-      "isBuyerMaker": true,
-      "isBestMatch": true
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 10
-    }
-  ]
+    "id": "409a20bd-253d-41db-a6dd-687862a5882f",
+    "status": 200,
+    "result": [
+        {
+            "id": 194686783,
+            "price": "0.01361000",
+            "qty": "0.01400000",
+            "quoteQty": "0.00019054",
+            "time": 1660009530807,
+            "isBuyerMaker": true,
+            "isBestMatch": true
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 10
+        }
+    ]
 }
 ```
 
@@ -1336,13 +1664,13 @@ NONE
 
 ```javascript
 {
-  "id": "cffc9c7d-4efc-4ce0-b587-6b87448f052a",
-  "method": "trades.historical",
-  "params": {
-    "symbol": "BNBBTC",
-    "fromId": 0,
-    "limit": 1
-  }
+    "id": "cffc9c7d-4efc-4ce0-b587-6b87448f052a",
+    "method": "trades.historical",
+    "params": {
+        "symbol": "BNBBTC",
+        "fromId": 0,
+        "limit": 1
+    }
 }
 ```
 
@@ -1357,7 +1685,7 @@ NONE
 --------- | ------- | --------- | -----------
 `symbol`  | STRING  | YES       |
 `fromId`  | INT     | NO        | 起始交易ID
-`limit`   | INT     | NO        | 默认 500; 最大值 1000
+`limit`   | INT     | NO        | 默认值 500； 最大值 1000
 
 备注：
 
@@ -1369,28 +1697,28 @@ NONE
 **响应:**
 ```javascript
 {
-  "id": "cffc9c7d-4efc-4ce0-b587-6b87448f052a",
-  "status": 200,
-  "result": [
-    {
-      "id": 0,
-      "price": "0.00005000",
-      "qty": "40.00000000",
-      "quoteQty": "0.00200000",
-      "time": 1500004800376,
-      "isBuyerMaker": true,
-      "isBestMatch": true
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 10
-    }
-  ]
+    "id": "cffc9c7d-4efc-4ce0-b587-6b87448f052a",
+    "status": 200,
+    "result": [
+        {
+            "id": 0,
+            "price": "0.00005000",
+            "qty": "40.00000000",
+            "quoteQty": "0.00200000",
+            "time": 1500004800376,
+            "isBuyerMaker": true,
+            "isBestMatch": true
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 10
+        }
+    ]
 }
 ```
 
@@ -1398,13 +1726,13 @@ NONE
 
 ```javascript
 {
-  "id": "189da436-d4bd-48ca-9f95-9f613d621717",
-  "method": "trades.aggregate",
-  "params": {
-    "symbol": "BNBBTC",
-    "fromId": 50000000,
-    "limit": 1
-  }
+    "id": "189da436-d4bd-48ca-9f95-9f613d621717",
+    "method": "trades.aggregate",
+    "params": {
+        "symbol": "BNBBTC",
+        "fromId": 50000000,
+        "limit": 1
+    }
 }
 ```
 
@@ -1427,10 +1755,10 @@ NONE
 名称        | 类型    | 是否必需 | 描述
 ----------- | ------- | --------- | -----------
 `symbol`    | STRING  | YES       |
-`fromId`    | INT     | NO        | 起始归集交易ID
-`startTime` | INT     | NO        |
-`endTime`   | INT     | NO        |
-`limit`     | INT     | NO        | 默认 500; 最大值 1000
+`fromId`    | LONG    | NO        | 起始归集交易ID
+`startTime` | LONG    | NO        |
+`endTime`   | LONG    | NO        |
+`limit`     | LONG    | NO        | 默认值： 500； 最大值： 1000
 
 备注：
 
@@ -1450,29 +1778,29 @@ NONE
 **响应:**
 ```javascript
 {
-  "id": "189da436-d4bd-48ca-9f95-9f613d621717",
-  "status": 200,
-  "result": [
-    {
-      "a": 50000000,        // 归集交易ID
-      "p": "0.00274100",    // 价格
-      "q": "57.19000000",   // 重量
-      "f": 59120167,        // 被归集的首个交易ID
-      "l": 59120170,        // 被归集的末次交易ID
-      "T": 1565877971222,   // 时间戳
-      "m": true,            // 买方是否是做市方。如true，则此次成交是一个主动卖出单，否则是一个主动买入单。
-      "M": true             // 交易是否是最好价格匹配。
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
+    "id": "189da436-d4bd-48ca-9f95-9f613d621717",
+    "status": 200,
+    "result": [
+        {
+            "a": 50000000,          // 归集交易ID
+            "p": "0.00274100",      // 价格
+            "q": "57.19000000",     // 重量
+            "f": 59120167,          // 被归集的首个交易ID
+            "l": 59120170,          // 被归集的末次交易ID
+            "T": 1565877971222,     // 时间戳
+            "m": true,              // 买方是否是做市方。如true，则此次成交是一个主动卖出单，否则是一个主动买入单。
+            "M": true               // 交易是否是最好价格匹配。
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 2
+        }
+    ]
 }
 ```
 
@@ -1481,14 +1809,14 @@ NONE
 
 ```javascript
 {
-  "id": "1dbbeb56-8eea-466a-8f6e-86bdcfa2fc0b",
-  "method": "klines",
-  "params": {
-    "symbol": "BNBBTC",
-    "interval": "1h",
-    "startTime": 1655969280000,
-    "limit": 1
-  }
+    "id": "1dbbeb56-8eea-466a-8f6e-86bdcfa2fc0b",
+    "method": "klines",
+    "params": {
+        "symbol": "BNBBTC",
+        "interval": "1h",
+        "startTime": 1655969280000,
+        "limit": 1
+    }
 }
 ```
 
@@ -1511,10 +1839,10 @@ Klines 由其开盘时间和收盘时间为唯一标识。
 ----------- | ------- | --------- | -----------
 `symbol`    | STRING  | YES       |
 `interval`  | ENUM    | YES       |
-`startTime` | INT     | NO        |
-`endTime`   | INT     | NO        |
-`timeZone` |STRING | NO | 默认: 0 (UTC)
-`limit`     | INT     | NO        | 默认 500; 最大值 1000
+`startTime` | LONG    | NO        |
+`endTime`   | LONG    | NO        |
+`timeZone`  | STRING  | NO        | 默认: 0 (UTC)
+`limit`     | INT     | NO        | 默认值： 500； 最大值： 1000
 
 <a id="kline-intervals"></a>
 支持的 kline 间隔（大小写敏感）：
@@ -1544,33 +1872,33 @@ months    | `1M`
 **响应:**
 ```javascript
 {
-  "id": "1dbbeb56-8eea-466a-8f6e-86bdcfa2fc0b",
-  "status": 200,
-  "result": [
-    [
-      1655971200000,      // 这根K线的起始时间
-      "0.01086000",       // 这根K线期间第一笔成交价
-      "0.01086600",       // 这根K线期间最高成交价
-      "0.01083600",       // 这根K线期间最低成交价
-      "0.01083800",       // 这根K线期间末一笔成交价
-      "2290.53800000",    // 这根K线期间成交量
-      1655974799999,      // 这根K线的结束时间
-      "24.85074442",      // 这根K线期间成交额
-      2283,               // 这根K线期间成交笔数
-      "1171.64000000",    // 主动买入的成交量
-      "12.71225884",      // 主动买入的成交额
-      "0"                 // 忽略此参数
+    "id": "1dbbeb56-8eea-466a-8f6e-86bdcfa2fc0b",
+    "status": 200,
+    "result": [
+        [
+            1655971200000,       // 这根K线的起始时间
+            "0.01086000",        // 这根K线期间第一笔成交价
+            "0.01086600",        // 这根K线期间最高成交价
+            "0.01083600",        // 这根K线期间最低成交价
+            "0.01083800",        // 这根K线期间末一笔成交价
+            "2290.53800000",     // 这根K线期间成交量
+            1655974799999,       // 这根K线的结束时间
+            "24.85074442",       // 这根K线期间成交额
+            2283,                // 这根K线期间成交笔数
+            "1171.64000000",     // 主动买入的成交量
+            "12.71225884",       // 主动买入的成交额
+            "0"                  // 忽略此参数
+        ]
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 2
+        }
     ]
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
 }
 ```
 
@@ -1578,14 +1906,14 @@ months    | `1M`
 
 ```javascript
 {
-  "id": "b137468a-fb20-4c06-bd6b-625148eec958",
-  "method": "uiKlines",
-  "params": {
-    "symbol": "BNBBTC",
-    "interval": "1h",
-    "startTime": 1655969280000,
-    "limit": 1
-  }
+    "id": "b137468a-fb20-4c06-bd6b-625148eec958",
+    "method": "uiKlines",
+    "params": {
+        "symbol": "BNBBTC",
+        "interval": "1h",
+        "startTime": 1655969280000,
+        "limit": 1
+    }
 }
 ```
 
@@ -1601,10 +1929,10 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 ----------- | ------- | --------- | -----------
 `symbol`    | STRING  | YES       |
 `interval`  | ENUM    | YES       | 请看 [`k线`](#kline-intervals)
-`startTime` | INT     | NO        |
-`endTime`   | INT     | NO        |
-`timeZone` |STRING | NO | 默认: 0 (UTC)
-`limit`     | INT     | NO        | 默认 500; 最大值 1000
+`startTime` | LONG    | NO        |
+`endTime`   | LONG    | NO        |
+`timeZone`  | STRING  | NO        | 默认: 0 (UTC)
+`limit`     | INT     | NO        | 默认值： 500； 最大值： 1000
 
 备注:
 
@@ -1622,33 +1950,33 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 **响应:**
 ```javascript
 {
-  "id": "b137468a-fb20-4c06-bd6b-625148eec958",
-  "status": 200,
-  "result": [
-    [
-      1655971200000,      // 这根K线的起始时间
-      "0.01086000",       // 这根K线期间第一笔成交价
-      "0.01086600",       // 这根K线期间最高成交价
-      "0.01083600",       // 这根K线期间最低成交价
-      "0.01083800",       // 这根K线期间末一笔成交价
-      "2290.53800000",    // 这根K线期间成交量
-      1655974799999,      // 这根K线的结束时间
-      "24.85074442",      // 这根K线期间成交额
-      2283,               // 这根K线期间成交笔数
-      "1171.64000000",    // 主动买入的成交量
-      "12.71225884",      // 主动买入的成交额
-      "0"                 // 忽略此参数
+    "id": "b137468a-fb20-4c06-bd6b-625148eec958",
+    "status": 200,
+    "result": [
+        [
+            1655971200000,       // 这根K线的起始时间
+            "0.01086000",        // 这根K线期间第一笔成交价
+            "0.01086600",        // 这根K线期间最高成交价
+            "0.01083600",        // 这根K线期间最低成交价
+            "0.01083800",        // 这根K线期间末一笔成交价
+            "2290.53800000",     // 这根K线期间成交量
+            1655974799999,       // 这根K线的结束时间
+            "24.85074442",       // 这根K线期间成交额
+            2283,                // 这根K线期间成交笔数
+            "1171.64000000",     // 主动买入的成交量
+            "12.71225884",       // 主动买入的成交额
+            "0"                  // 忽略此参数
+        ]
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 2
+        }
     ]
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
 }
 ```
 
@@ -1656,11 +1984,11 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 
 ```javascript
 {
-  "id": "ddbfb65f-9ebf-42ec-8240-8f0f91de0867",
-  "method": "avgPrice",
-  "params": {
-    "symbol": "BNBBTC"
-  }
+    "id": "ddbfb65f-9ebf-42ec-8240-8f0f91de0867",
+    "method": "avgPrice",
+    "params": {
+        "symbol": "BNBBTC"
+    }
 }
 ```
 
@@ -1681,22 +2009,22 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 **响应:**
 ```javascript
 {
-  "id": "ddbfb65f-9ebf-42ec-8240-8f0f91de0867",
-  "status": 200,
-  "result": {
-    "mins": 5,              // 以分钟为单位的价格平均间隔
-    "price": "0.01378135",
-    "closeTime": 1694061154503
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "id": "ddbfb65f-9ebf-42ec-8240-8f0f91de0867",
+    "status": 200,
+    "result": {
+        "mins": 5, // 以分钟为单位的价格平均间隔
+        "price": "0.01378135",
+        "closeTime": 1694061154503
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 <a id="twentyfourhourticker"></a>
@@ -1704,18 +2032,18 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 
 ```javascript
 {
-  "id": "93fb61ef-89f8-4d6e-b022-4f035a3fadad",
-  "method": "ticker.24hr",
-  "params": {
-    "symbol": "BNBBTC"
-  }
+    "id": "93fb61ef-89f8-4d6e-b022-4f035a3fadad",
+    "method": "ticker.24hr",
+    "params": {
+        "symbol": "BNBBTC"
+    }
 }
 ```
 
 24 小时滚动窗口价格变动数据。
 如果您需要持续监控交易统计，请考虑使用 WebSocket Streams:
 
-* [`<symbol>@ticker`](web-socket-streams_CN.md#twentyfourhourticker) 或者 [`!ticker@arr`](web-socket-streams_CN.md#all-markets-ticker)
+* [`<symbol>@ticker`](web-socket-streams_CN.md#twentyfourhourticker)
 * [`<symbol>@miniTicker`](web-socket-streams_CN.md#twentyfourhourminiticker) 或者 [`!miniTicker@arr`](web-socket-streams_CN.md#all-markets-mini-ticker)
 
 如果你想用不同的窗口数量，可以用 [`ticker`](#ticker) 请求。
@@ -1759,6 +2087,12 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
         <td align=center>NO</td>
         <td>Ticker 类型: <code>FULL</code> (默认) 或者 <code>MINI</code></td>
     </tr>
+    <tr>
+        <td>symbolStatus</td>
+        <td>ENUM</td>
+        <td rowspan="2" align="center">NO</td>
+        <td>过滤具有此 <code>tradingStatus</code> 的交易对。<br>对于单个交易对，如果状态不匹配，将返回错误 <code>-1220 交易对与状态不匹配</code>。<br>对于多个或者全部交易对， 响应中不会包括状态不匹配的交易对。<br>有效值： <code>TRADING</code>, <code>HALT</code>, <code>BREAK</code> </td>
+    </tr>
 </tbody>
 </table>
 
@@ -1777,40 +2111,40 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 
 ```javascript
 {
-  "id": "93fb61ef-89f8-4d6e-b022-4f035a3fadad",
-  "status": 200,
-  "result": {
-    "symbol": "BNBBTC",
-    "priceChange": "0.00013900",
-    "priceChangePercent": "1.020",
-    "weightedAvgPrice": "0.01382453",
-    "prevClosePrice": "0.01362800",
-    "lastPrice": "0.01376700",
-    "lastQty": "1.78800000",
-    "bidPrice": "0.01376700",
-    "bidQty": "4.64600000",
-    "askPrice": "0.01376800",
-    "askQty": "14.31400000",
-    "openPrice": "0.01362800",
-    "highPrice": "0.01414900",
-    "lowPrice": "0.01346600",
-    "volume": "69412.40500000",
-    "quoteVolume": "959.59411487",
-    "openTime": 1660014164909,
-    "closeTime": 1660100564909,
-    "firstId": 194696115,       // 第一个交易 ID
-    "lastId": 194968287,        // 最后一个交易 ID
-    "count": 272173             // 成交笔数
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
+    "id": "93fb61ef-89f8-4d6e-b022-4f035a3fadad",
+    "status": 200,
+    "result": {
+        "symbol": "BNBBTC",
+        "priceChange": "0.00013900",
+        "priceChangePercent": "1.020",
+        "weightedAvgPrice": "0.01382453",
+        "prevClosePrice": "0.01362800",
+        "lastPrice": "0.01376700",
+        "lastQty": "1.78800000",
+        "bidPrice": "0.01376700",
+        "bidQty": "4.64600000",
+        "askPrice": "0.01376800",
+        "askQty": "14.31400000",
+        "openPrice": "0.01362800",
+        "highPrice": "0.01414900",
+        "lowPrice": "0.01346600",
+        "volume": "69412.40500000",
+        "quoteVolume": "959.59411487",
+        "openTime": 1660014164909,
+        "closeTime": 1660100564909,
+        "firstId": 194696115,     // 第一个交易 ID
+        "lastId": 194968287,      // 最后一个交易 ID
+        "count": 272173           // 成交笔数
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 2
+        }
+    ]
 }
 ```
 
@@ -1818,31 +2152,31 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 
 ```javascript
 {
-  "id": "9fa2a91b-3fca-4ed7-a9ad-58e3b67483de",
-  "status": 200,
-  "result": {
-    "symbol": "BNBBTC",
-    "openPrice": "0.01362800",
-    "highPrice": "0.01414900",
-    "lowPrice": "0.01346600",
-    "lastPrice": "0.01376700",
-    "volume": "69412.40500000",
-    "quoteVolume": "959.59411487",
-    "openTime": 1660014164909,
-    "closeTime": 1660100564909,
-    "firstId": 194696115,       // 第一个交易 ID
-    "lastId": 194968287,        // 最后一个交易ID
-    "count": 272173             // 成交笔数
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
+    "id": "9fa2a91b-3fca-4ed7-a9ad-58e3b67483de",
+    "status": 200,
+    "result": {
+        "symbol": "BNBBTC",
+        "openPrice": "0.01362800",
+        "highPrice": "0.01414900",
+        "lowPrice": "0.01346600",
+        "lastPrice": "0.01376700",
+        "volume": "69412.40500000",
+        "quoteVolume": "959.59411487",
+        "openTime": 1660014164909,
+        "closeTime": 1660100564909,
+        "firstId": 194696115,     // 第一个交易 ID
+        "lastId": 194968287,      // 最后一个交易ID
+        "count": 272173           // 成交笔数
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 2
+        }
+    ]
 }
 ```
 
@@ -1850,65 +2184,65 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 
 ```javascript
 {
-  "id": "901be0d9-fd3b-45e4-acd6-10c580d03430",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BNBBTC",
-      "priceChange": "0.00016500",
-      "priceChangePercent": "1.213",
-      "weightedAvgPrice": "0.01382508",
-      "prevClosePrice": "0.01360800",
-      "lastPrice": "0.01377200",
-      "lastQty": "1.01400000",
-      "bidPrice": "0.01377100",
-      "bidQty": "7.55700000",
-      "askPrice": "0.01377200",
-      "askQty": "4.37900000",
-      "openPrice": "0.01360700",
-      "highPrice": "0.01414900",
-      "lowPrice": "0.01346600",
-      "volume": "69376.27900000",
-      "quoteVolume": "959.13277091",
-      "openTime": 1660014615517,
-      "closeTime": 1660101015517,
-      "firstId": 194697254,
-      "lastId": 194969483,
-      "count": 272230
-    },
-    {
-      "symbol": "BTCUSDT",
-      "priceChange": "-938.06000000",
-      "priceChangePercent": "-3.938",
-      "weightedAvgPrice": "23265.34432003",
-      "prevClosePrice": "23819.17000000",
-      "lastPrice": "22880.91000000",
-      "lastQty": "0.00536000",
-      "bidPrice": "22880.40000000",
-      "bidQty": "0.00424000",
-      "askPrice": "22880.91000000",
-      "askQty": "0.04276000",
-      "openPrice": "23818.97000000",
-      "highPrice": "23933.25000000",
-      "lowPrice": "22664.69000000",
-      "volume": "153508.37606000",
-      "quoteVolume": "3571425225.04441220",
-      "openTime": 1660014615977,
-      "closeTime": 1660101015977,
-      "firstId": 1592019902,
-      "lastId": 1597301762,
-      "count": 5281861
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
+    "id": "901be0d9-fd3b-45e4-acd6-10c580d03430",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BNBBTC",
+            "priceChange": "0.00016500",
+            "priceChangePercent": "1.213",
+            "weightedAvgPrice": "0.01382508",
+            "prevClosePrice": "0.01360800",
+            "lastPrice": "0.01377200",
+            "lastQty": "1.01400000",
+            "bidPrice": "0.01377100",
+            "bidQty": "7.55700000",
+            "askPrice": "0.01377200",
+            "askQty": "4.37900000",
+            "openPrice": "0.01360700",
+            "highPrice": "0.01414900",
+            "lowPrice": "0.01346600",
+            "volume": "69376.27900000",
+            "quoteVolume": "959.13277091",
+            "openTime": 1660014615517,
+            "closeTime": 1660101015517,
+            "firstId": 194697254,
+            "lastId": 194969483,
+            "count": 272230
+        },
+        {
+            "symbol": "BTCUSDT",
+            "priceChange": "-938.06000000",
+            "priceChangePercent": "-3.938",
+            "weightedAvgPrice": "23265.34432003",
+            "prevClosePrice": "23819.17000000",
+            "lastPrice": "22880.91000000",
+            "lastQty": "0.00536000",
+            "bidPrice": "22880.40000000",
+            "bidQty": "0.00424000",
+            "askPrice": "22880.91000000",
+            "askQty": "0.04276000",
+            "openPrice": "23818.97000000",
+            "highPrice": "23933.25000000",
+            "lowPrice": "22664.69000000",
+            "volume": "153508.37606000",
+            "quoteVolume": "3571425225.04441220",
+            "openTime": 1660014615977,
+            "closeTime": 1660101015977,
+            "firstId": 1592019902,
+            "lastId": 1597301762,
+            "count": 5281861
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 2
+        }
+    ]
 }
 ```
 
@@ -1917,15 +2251,12 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 
 ```javascript
 {
-  "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
-  "method": "ticker.tradingDay",
-  "params": {
-    "symbols": [
-      "BNBBTC",
-      "BTCUSDT"
-    ],
-    "timeZone": "00:00"
-  }
+    "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
+    "method": "ticker.tradingDay",
+    "params": {
+        "symbols": ["BNBBTC", "BTCUSDT"],
+        "timeZone": "00:00"
+    }
 }
 ```
 
@@ -1968,6 +2299,12 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
       <td>NO</td>
       <td>可接受值: <tt>FULL</tt> or <tt>MINI</tt>. <br/>默认值: <tt>FULL</tt></td>
   </tr>
+  <tr>
+      <td>symbolStatus</td>
+      <td>ENUM</td>
+      <td>NO</td>
+      <td>过滤具有此 <code>tradingStatus</code> 的交易对。<br>对于单个交易对，如果状态不匹配，将返回错误 <code>-1220 交易对与状态不匹配</code>。<br>对于多个交易对， 响应中不会包括状态不匹配的交易对。<br>有效值： <code>TRADING</code>, <code>HALT</code>, <code>BREAK</code> </td>
+  </tr>
 </table>
 
 **注意:**
@@ -1985,34 +2322,34 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 
 ```javascript
 {
-  "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
-  "status": 200,
-  "result": {
-    "symbol": "BTCUSDT",
-    "priceChange": "-83.13000000",                // 绝对价格变动
-    "priceChangePercent": "-0.317",               // 相对价格变动百分比
-    "weightedAvgPrice": "26234.58803036",         // 报价成交量 / 成交量
-    "openPrice": "26304.80000000",
-    "highPrice": "26397.46000000",
-    "lowPrice": "26088.34000000",
-    "lastPrice": "26221.67000000",
-    "volume": "18495.35066000",                   // 基础资产的成交量
-    "quoteVolume": "485217905.04210480",
-    "openTime": 1695686400000,
-    "closeTime": 1695772799999,
-    "firstId": 3220151555,
-    "lastId": 3220849281,
-    "count": 697727
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 4
-    }
-  ]
+    "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
+    "status": 200,
+    "result": {
+        "symbol": "BTCUSDT",
+        "priceChange": "-83.13000000",            // 绝对价格变动
+        "priceChangePercent": "-0.317",           // 相对价格变动百分比
+        "weightedAvgPrice": "26234.58803036",     // 报价成交量 / 成交量
+        "openPrice": "26304.80000000",
+        "highPrice": "26397.46000000",
+        "lowPrice": "26088.34000000",
+        "lastPrice": "26221.67000000",
+        "volume": "18495.35066000",               // 基础资产的成交量
+        "quoteVolume": "485217905.04210480",
+        "openTime": 1695686400000,
+        "closeTime": 1695772799999,
+        "firstId": 3220151555,
+        "lastId": 3220849281,
+        "count": 697727
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 4
+        }
+    ]
 }
 ```
 
@@ -2020,53 +2357,53 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 
 ```javascript
 {
-  "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BTCUSDT",
-      "priceChange": "-83.13000000",
-      "priceChangePercent": "-0.317",
-      "weightedAvgPrice": "26234.58803036",
-      "openPrice": "26304.80000000",
-      "highPrice": "26397.46000000",
-      "lowPrice": "26088.34000000",
-      "lastPrice": "26221.67000000",
-      "volume": "18495.35066000",
-      "quoteVolume": "485217905.04210480",
-      "openTime": 1695686400000,
-      "closeTime": 1695772799999,
-      "firstId": 3220151555,
-      "lastId": 3220849281,
-      "count": 697727
-    },
-    {
-      "symbol": "BNBUSDT",
-      "priceChange": "2.60000000",
-      "priceChangePercent": "1.238",
-      "weightedAvgPrice": "211.92276958",
-      "openPrice": "210.00000000",
-      "highPrice": "213.70000000",
-      "lowPrice": "209.70000000",
-      "lastPrice": "212.60000000",
-      "volume": "280709.58900000",
-      "quoteVolume": "59488753.54750000",
-      "openTime": 1695686400000,
-      "closeTime": 1695772799999,
-      "firstId": 672397461,
-      "lastId": 672496158,
-      "count": 98698
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 8
-    }
-  ]
+    "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BTCUSDT",
+            "priceChange": "-83.13000000",
+            "priceChangePercent": "-0.317",
+            "weightedAvgPrice": "26234.58803036",
+            "openPrice": "26304.80000000",
+            "highPrice": "26397.46000000",
+            "lowPrice": "26088.34000000",
+            "lastPrice": "26221.67000000",
+            "volume": "18495.35066000",
+            "quoteVolume": "485217905.04210480",
+            "openTime": 1695686400000,
+            "closeTime": 1695772799999,
+            "firstId": 3220151555,
+            "lastId": 3220849281,
+            "count": 697727
+        },
+        {
+            "symbol": "BNBUSDT",
+            "priceChange": "2.60000000",
+            "priceChangePercent": "1.238",
+            "weightedAvgPrice": "211.92276958",
+            "openPrice": "210.00000000",
+            "highPrice": "213.70000000",
+            "lowPrice": "209.70000000",
+            "lastPrice": "212.60000000",
+            "volume": "280709.58900000",
+            "quoteVolume": "59488753.54750000",
+            "openTime": 1695686400000,
+            "closeTime": 1695772799999,
+            "firstId": 672397461,
+            "lastId": 672496158,
+            "count": 98698
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 8
+        }
+    ]
 }
 ```
 
@@ -2076,31 +2413,31 @@ uiKlines 是返回修改后的k线数据，针对k线图的呈现进行了优化
 
 ```javascript
 {
-  "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
-  "status": 200,
-  "result": {
-    "symbol": "BTCUSDT",
-    "openPrice": "26304.80000000",
-    "highPrice": "26397.46000000",
-    "lowPrice": "26088.34000000",
-    "lastPrice": "26221.67000000",
-    "volume": "18495.35066000",                  // 基础资产的成交量
-    "quoteVolume": "485217905.04210480",         // 报价资产的成交量
-    "openTime": 1695686400000,
-    "closeTime": 1695772799999,
-    "firstId": 3220151555,                       // 区间内的第一个交易的交易ID
-    "lastId": 3220849281,                        // 区间内的最后一个交易的交易ID
-    "count": 697727                              // 区间内的交易数量
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 4
-    }
-  ]
+    "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
+    "status": 200,
+    "result": {
+        "symbol": "BTCUSDT",
+        "openPrice": "26304.80000000",
+        "highPrice": "26397.46000000",
+        "lowPrice": "26088.34000000",
+        "lastPrice": "26221.67000000",
+        "volume": "18495.35066000",              // 基础资产的成交量
+        "quoteVolume": "485217905.04210480",     // 报价资产的成交量
+        "openTime": 1695686400000,
+        "closeTime": 1695772799999,
+        "firstId": 3220151555,                   // 区间内的第一个交易的交易ID
+        "lastId": 3220849281,                    // 区间内的最后一个交易的交易ID
+        "count": 697727                          // 区间内的交易数量
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 4
+        }
+    ]
 }
 ```
 
@@ -2108,47 +2445,47 @@ With `symbols`:
 
 ```javascript
 {
-  "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BTCUSDT",
-      "openPrice": "26304.80000000",
-      "highPrice": "26397.46000000",
-      "lowPrice": "26088.34000000",
-      "lastPrice": "26221.67000000",
-      "volume": "18495.35066000",
-      "quoteVolume": "485217905.04210480",
-      "openTime": 1695686400000,
-      "closeTime": 1695772799999,
-      "firstId": 3220151555,
-      "lastId": 3220849281,
-      "count": 697727
-    },
-    {
-      "symbol": "BNBUSDT",
-      "openPrice": "210.00000000",
-      "highPrice": "213.70000000",
-      "lowPrice": "209.70000000",
-      "lastPrice": "212.60000000",
-      "volume": "280709.58900000",
-      "quoteVolume": "59488753.54750000",
-      "openTime": 1695686400000,
-      "closeTime": 1695772799999,
-      "firstId": 672397461,
-      "lastId": 672496158,
-      "count": 98698
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 8
-    }
-  ]
+    "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BTCUSDT",
+            "openPrice": "26304.80000000",
+            "highPrice": "26397.46000000",
+            "lowPrice": "26088.34000000",
+            "lastPrice": "26221.67000000",
+            "volume": "18495.35066000",
+            "quoteVolume": "485217905.04210480",
+            "openTime": 1695686400000,
+            "closeTime": 1695772799999,
+            "firstId": 3220151555,
+            "lastId": 3220849281,
+            "count": 697727
+        },
+        {
+            "symbol": "BNBUSDT",
+            "openPrice": "210.00000000",
+            "highPrice": "213.70000000",
+            "lowPrice": "209.70000000",
+            "lastPrice": "212.60000000",
+            "volume": "280709.58900000",
+            "quoteVolume": "59488753.54750000",
+            "openTime": 1695686400000,
+            "closeTime": 1695772799999,
+            "firstId": 672397461,
+            "lastId": 672496158,
+            "count": 98698
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 8
+        }
+    ]
 }
 ```
 
@@ -2157,15 +2494,12 @@ With `symbols`:
 
 ```javascript
 {
-  "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
-  "method": "ticker",
-  "params": {
-    "symbols": [
-      "BNBBTC",
-      "BTCUSDT"
-    ],
-    "windowSize": "7d"
-  }
+    "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
+    "method": "ticker",
+    "params": {
+        "symbols": ["BNBBTC", "BTCUSDT"],
+        "windowSize": "7d"
+    }
 }
 ```
 
@@ -2184,8 +2518,10 @@ With `symbols`:
 例如，对 `"windowSize": "7d"` 的请求可能会导致以下窗口：
 
 ```javascript
-"openTime": 1659580020000,
-"closeTime": 1660184865291,
+{
+    "openTime": 1659580020000,
+    "closeTime": 1660184865291
+}
 ```
 
 请求的时间 - `closeTime` - 是 1660184865291（2022年8月11日 02:27:45.291）。
@@ -2240,6 +2576,12 @@ With `symbols`:
         <td align=center>NO</td>
         <td>默认 <code>1d</code></td>
     </tr>
+    <tr>
+        <td>symbolStatus</td>
+        <td>ENUM</td>
+        <td rowspan="2" align="center">NO</td>
+        <td>过滤具有此 <code>tradingStatus</code> 的交易对。<br>对于单个交易对，如果状态不匹配，将返回错误 <code>-1220 交易对与状态不匹配</code>。<br>对于多个交易对， 响应中不会包括状态不匹配的交易对。<br>有效值： <code>TRADING</code>, <code>HALT</code>, <code>BREAK</code> </td>
+    </tr>
 </tbody>
 </table>
 
@@ -2269,34 +2611,34 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
-  "status": 200,
-  "result": {
-    "symbol": "BNBBTC",
-    "priceChange": "0.00061500",
-    "priceChangePercent": "4.735",
-    "weightedAvgPrice": "0.01368242",
-    "openPrice": "0.01298900",
-    "highPrice": "0.01418800",
-    "lowPrice": "0.01296000",
-    "lastPrice": "0.01360400",
-    "volume": "587179.23900000",
-    "quoteVolume": "8034.03382165",
-    "openTime": 1659580020000,
-    "closeTime": 1660184865291,
-    "firstId": 192977765,       // 第一个交易 ID
-    "lastId": 195365758,        // 最后交易 ID
-    "count": 2387994            // 成交笔数
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 4
-    }
-  ]
+    "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
+    "status": 200,
+    "result": {
+        "symbol": "BNBBTC",
+        "priceChange": "0.00061500",
+        "priceChangePercent": "4.735",
+        "weightedAvgPrice": "0.01368242",
+        "openPrice": "0.01298900",
+        "highPrice": "0.01418800",
+        "lowPrice": "0.01296000",
+        "lastPrice": "0.01360400",
+        "volume": "587179.23900000",
+        "quoteVolume": "8034.03382165",
+        "openTime": 1659580020000,
+        "closeTime": 1660184865291,
+        "firstId": 192977765,     // 第一个交易 ID
+        "lastId": 195365758,      // 最后交易 ID
+        "count": 2387994          // 成交笔数
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 4
+        }
+    ]
 }
 ```
 
@@ -2304,31 +2646,31 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "bdb7c503-542c-495c-b797-4d2ee2e91173",
-  "status": 200,
-  "result": {
-    "symbol": "BNBBTC",
-    "openPrice": "0.01298900",
-    "highPrice": "0.01418800",
-    "lowPrice": "0.01296000",
-    "lastPrice": "0.01360400",
-    "volume": "587179.23900000",
-    "quoteVolume": "8034.03382165",
-    "openTime": 1659580020000,
-    "closeTime": 1660184865291,
-    "firstId": 192977765,       // 第一个交易 ID
-    "lastId": 195365758,        // 最后交易 ID
-    "count": 2387994            // 成交笔数
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 4
-    }
-  ]
+    "id": "bdb7c503-542c-495c-b797-4d2ee2e91173",
+    "status": 200,
+    "result": {
+        "symbol": "BNBBTC",
+        "openPrice": "0.01298900",
+        "highPrice": "0.01418800",
+        "lowPrice": "0.01296000",
+        "lastPrice": "0.01360400",
+        "volume": "587179.23900000",
+        "quoteVolume": "8034.03382165",
+        "openTime": 1659580020000,
+        "closeTime": 1660184865291,
+        "firstId": 192977765,     // 第一个交易 ID
+        "lastId": 195365758,      // 最后交易 ID
+        "count": 2387994          // 成交笔数
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 4
+        }
+    ]
 }
 ```
 
@@ -2336,53 +2678,53 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BNBBTC",
-      "priceChange": "0.00061500",
-      "priceChangePercent": "4.735",
-      "weightedAvgPrice": "0.01368242",
-      "openPrice": "0.01298900",
-      "highPrice": "0.01418800",
-      "lowPrice": "0.01296000",
-      "lastPrice": "0.01360400",
-      "volume": "587169.48600000",
-      "quoteVolume": "8033.90114517",
-      "openTime": 1659580020000,
-      "closeTime": 1660184820927,
-      "firstId": 192977765,
-      "lastId": 195365700,
-      "count": 2387936
-    },
-    {
-      "symbol": "BTCUSDT",
-      "priceChange": "1182.92000000",
-      "priceChangePercent": "5.113",
-      "weightedAvgPrice": "23349.27074846",
-      "openPrice": "23135.33000000",
-      "highPrice": "24491.22000000",
-      "lowPrice": "22400.00000000",
-      "lastPrice": "24318.25000000",
-      "volume": "1039498.10978000",
-      "quoteVolume": "24271522807.76838630",
-      "openTime": 1659580020000,
-      "closeTime": 1660184820927,
-      "firstId": 1568787779,
-      "lastId": 1604337406,
-      "count": 35549628
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 8
-    }
-  ]
+    "id": "f4b3b507-c8f2-442a-81a6-b2f12daa030f",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BNBBTC",
+            "priceChange": "0.00061500",
+            "priceChangePercent": "4.735",
+            "weightedAvgPrice": "0.01368242",
+            "openPrice": "0.01298900",
+            "highPrice": "0.01418800",
+            "lowPrice": "0.01296000",
+            "lastPrice": "0.01360400",
+            "volume": "587169.48600000",
+            "quoteVolume": "8033.90114517",
+            "openTime": 1659580020000,
+            "closeTime": 1660184820927,
+            "firstId": 192977765,
+            "lastId": 195365700,
+            "count": 2387936
+        },
+        {
+            "symbol": "BTCUSDT",
+            "priceChange": "1182.92000000",
+            "priceChangePercent": "5.113",
+            "weightedAvgPrice": "23349.27074846",
+            "openPrice": "23135.33000000",
+            "highPrice": "24491.22000000",
+            "lowPrice": "22400.00000000",
+            "lastPrice": "24318.25000000",
+            "volume": "1039498.10978000",
+            "quoteVolume": "24271522807.76838630",
+            "openTime": 1659580020000,
+            "closeTime": 1660184820927,
+            "firstId": 1568787779,
+            "lastId": 1604337406,
+            "count": 35549628
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 8
+        }
+    ]
 }
 ```
 
@@ -2390,11 +2732,11 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "043a7cf2-bde3-4888-9604-c8ac41fcba4d",
-  "method": "ticker.price",
-  "params": {
-    "symbol": "BNBBTC"
-  }
+    "id": "043a7cf2-bde3-4888-9604-c8ac41fcba4d",
+    "method": "ticker.price",
+    "params": {
+        "symbol": "BNBBTC"
+    }
 }
 ```
 
@@ -2437,6 +2779,12 @@ days    | `1d`, `2d` ... `7d`
         <td>ARRAY of STRING</td>
         <td>获取多个交易对的 price </td>
     </tr>
+    <tr>
+        <td>symbolStatus</td>
+        <td>ENUM</td>
+        <td rowspan="2" align="center">NO</td>
+        <td>过滤具有此 <code>tradingStatus</code> 的交易对。<br>对于单个交易对，如果状态不匹配，将返回错误 <code>-1220 交易对与状态不匹配</code>。<br>对于多个或者全部交易对， 响应中不会包括状态不匹配的交易对。<br>有效值： <code>TRADING</code>, <code>HALT</code>, <code>BREAK</code> </td>
+    </tr>
 </tbody>
 </table>
 
@@ -2453,21 +2801,21 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "043a7cf2-bde3-4888-9604-c8ac41fcba4d",
-  "status": 200,
-  "result": {
-    "symbol": "BNBBTC",
-    "price": "0.01361900"
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
+    "id": "043a7cf2-bde3-4888-9604-c8ac41fcba4d",
+    "status": 200,
+    "result": {
+        "symbol": "BNBBTC",
+        "price": "0.01361900"
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 2
+        }
+    ]
 }
 ```
 
@@ -2475,31 +2823,31 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "e739e673-24c8-4adf-9cfa-b81f30330b09",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BNBBTC",
-      "price": "0.01363700"
-    },
-    {
-      "symbol": "BTCUSDT",
-      "price": "24267.15000000"
-    },
-    {
-      "symbol": "BNBBUSD",
-      "price": "331.10000000"
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 4
-    }
-  ]
+    "id": "e739e673-24c8-4adf-9cfa-b81f30330b09",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BNBBTC",
+            "price": "0.01363700"
+        },
+        {
+            "symbol": "BTCUSDT",
+            "price": "24267.15000000"
+        },
+        {
+            "symbol": "BNBBUSD",
+            "price": "331.10000000"
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 4
+        }
+    ]
 }
 ```
 
@@ -2507,14 +2855,11 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "057deb3a-2990-41d1-b58b-98ea0f09e1b4",
-  "method": "ticker.book",
-  "params": {
-    "symbols": [
-      "BNBBTC",
-      "BTCUSDT"
-    ]
-  }
+    "id": "057deb3a-2990-41d1-b58b-98ea0f09e1b4",
+    "method": "ticker.book",
+    "params": {
+        "symbols": ["BNBBTC", "BTCUSDT"]
+    }
 }
 ```
 
@@ -2556,6 +2901,12 @@ days    | `1d`, `2d` ... `7d`
         <td>ARRAY of STRING</td>
         <td>获取多个交易对的 ticker</td>
     </tr>
+    <tr>
+        <td>symbolStatus</td>
+        <td>ENUM</td>
+        <td rowspan="2" align="center">NO</td>
+        <td>过滤具有此 <code>tradingStatus</code> 的交易对。<br>对于单个交易对，如果状态不匹配，将返回错误 <code>-1220 交易对与状态不匹配</code>。<br>对于多个或者全部交易对， 响应中不会包括状态不匹配的交易对。<br>有效值： <code>TRADING</code>, <code>HALT</code>, <code>BREAK</code> </td>
+    </tr>
 </tbody>
 </table>
 
@@ -2572,24 +2923,24 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "9d32157c-a556-4d27-9866-66760a174b57",
-  "status": 200,
-  "result": {
-    "symbol": "BNBBTC",
-    "bidPrice": "0.01358000",
-    "bidQty": "12.53400000",
-    "askPrice": "0.01358100",
-    "askQty": "17.83700000"
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
+    "id": "9d32157c-a556-4d27-9866-66760a174b57",
+    "status": 200,
+    "result": {
+        "symbol": "BNBBTC",
+        "bidPrice": "0.01358000",
+        "bidQty": "12.53400000",
+        "askPrice": "0.01358100",
+        "askQty": "17.83700000"
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 2
+        }
+    ]
 }
 ```
 
@@ -2597,33 +2948,33 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "057deb3a-2990-41d1-b58b-98ea0f09e1b4",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BNBBTC",
-      "bidPrice": "0.01358000",
-      "bidQty": "12.53400000",
-      "askPrice": "0.01358100",
-      "askQty": "17.83700000"
-    },
-    {
-      "symbol": "BTCUSDT",
-      "bidPrice": "23980.49000000",
-      "bidQty": "0.01000000",
-      "askPrice": "23981.31000000",
-      "askQty": "0.01512000"
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 4
-    }
-  ]
+    "id": "057deb3a-2990-41d1-b58b-98ea0f09e1b4",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BNBBTC",
+            "bidPrice": "0.01358000",
+            "bidQty": "12.53400000",
+            "askPrice": "0.01358100",
+            "askQty": "17.83700000"
+        },
+        {
+            "symbol": "BTCUSDT",
+            "bidPrice": "23980.49000000",
+            "bidQty": "0.01000000",
+            "askPrice": "23981.31000000",
+            "askQty": "0.01512000"
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 4
+        }
+    ]
 }
 ```
 
@@ -2637,13 +2988,13 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "c174a2b1-3f51-4580-b200-8528bd237cb7",
-  "method": "session.logon",
-  "params": {
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "1cf54395b336b0a9727ef27d5d98987962bc47aca6e13fe978612d0adee066ed",
-    "timestamp": 1649729878532
-  }
+    "id": "c174a2b1-3f51-4580-b200-8528bd237cb7",
+    "method": "session.logon",
+    "params": {
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "1cf54395b336b0a9727ef27d5d98987962bc47aca6e13fe978612d0adee066ed",
+        "timestamp": 1649729878532
+    }
 }
 ```
 
@@ -2662,9 +3013,9 @@ days    | `1d`, `2d` ... `7d`
 参数名          | 类型    | 是否必需 | 描述
 ------------- | ------- | --------- | ------------
 `apiKey`      | STRING  | YES       |
-`recvWindow`  | INT     | NO        | The value cannot be greater than `60000`
+`recvWindow`  | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `signature`   | STRING  | YES       |
-`timestamp`   | INT     | YES       |
+`timestamp`   | LONG    | YES       |
 
 **数据源:**
 缓存
@@ -2673,16 +3024,16 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "c174a2b1-3f51-4580-b200-8528bd237cb7",
-  "status": 200,
-  "result": {
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "authorizedSince": 1649729878532,
-    "connectedSince": 1649729873021,
-    "returnRateLimits": false,
-    "serverTime": 1649729878630,
-    "userDataStream": true
-  }
+    "id": "c174a2b1-3f51-4580-b200-8528bd237cb7",
+    "status": 200,
+    "result": {
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "authorizedSince": 1649729878532,
+        "connectedSince": 1649729873021,
+        "returnRateLimits": false,
+        "serverTime": 1649729878630,
+        "userDataStream": false // User Data Stream 订阅是否有效？
+    }
 }
 ```
 
@@ -2692,8 +3043,8 @@ days    | `1d`, `2d` ... `7d`
 
 ```javascript
 {
-  "id": "b50c16cd-62c9-4e29-89e4-37f10111f5bf",
-  "method": "session.status"
+    "id": "b50c16cd-62c9-4e29-89e4-37f10111f5bf",
+    "method": "session.status"
 }
 ```
 
@@ -2712,17 +3063,17 @@ NONE
 
 ```javascript
 {
-  "id": "b50c16cd-62c9-4e29-89e4-37f10111f5bf",
-  "status": 200,
-  "result": {
-    // 如果连接未经身份验证，"apiKey" 和 "authorizedSince" 将显示为 null。
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "authorizedSince": 1649729878532,
-    "connectedSince": 1649729873021,
-    "returnRateLimits": false,
-    "serverTime": 1649730611671,
-    "userDataStream": true
-  }
+    "id": "b50c16cd-62c9-4e29-89e4-37f10111f5bf",
+    "status": 200,
+    "result": {
+        // 如果连接未经身份验证，"apiKey" 和 "authorizedSince" 将显示为 null。
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "authorizedSince": 1649729878532,
+        "connectedSince": 1649729873021,
+        "returnRateLimits": false,
+        "serverTime": 1649730611671,
+        "userDataStream": true     // User Data Stream 订阅是否有效？
+    }
 }
 ```
 
@@ -2732,8 +3083,8 @@ NONE
 
 ```javascript
 {
-  "id": "c174a2b1-3f51-4580-b200-8528bd237cb7",
-  "method": "session.logout"
+    "id": "c174a2b1-3f51-4580-b200-8528bd237cb7",
+    "method": "session.logout"
 }
 ```
 
@@ -2756,16 +3107,16 @@ NONE
 
 ```javascript
 {
-  "id": "c174a2b1-3f51-4580-b200-8528bd237cb7",
-  "status": 200,
-  "result": {
-    "apiKey": null,
-    "authorizedSince": null,
-    "connectedSince": 1649729873021,
-    "returnRateLimits": false,
-    "serverTime": 1649730611671,
-    "userDataStream": true
-  }
+    "id": "c174a2b1-3f51-4580-b200-8528bd237cb7",
+    "status": 200,
+    "result": {
+        "apiKey": null,
+        "authorizedSince": null,
+        "connectedSince": 1649729873021,
+        "returnRateLimits": false,
+        "serverTime": 1649730611671,
+        "userDataStream": false // User Data Stream 订阅是否有效？
+    }
 }
 ```
 
@@ -2777,25 +3128,30 @@ NONE
 
 ```javascript
 {
-  "id": "56374a46-3061-486b-a311-99ee972eb648",
-  "method": "order.place",
-  "params": {
-    "symbol": "BTCUSDT",
-    "side": "SELL",
-    "type": "LIMIT",
-    "timeInForce": "GTC",
-    "price": "23416.10000000",
-    "quantity": "0.00847000",
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "15af09e41c36f3cc61378c2fbe2c33719a03dd5eba8d0f9206fbda44de717c88",
-    "timestamp": 1660801715431
-  }
+    "id": "56374a46-3061-486b-a311-99ee972eb648",
+    "method": "order.place",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "SELL",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "price": "23416.10000000",
+        "quantity": "0.00847000",
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "15af09e41c36f3cc61378c2fbe2c33719a03dd5eba8d0f9206fbda44de717c88",
+        "timestamp": 1660801715431
+    }
 }
 ```
 
 下新的订单。
 
+这个请求会把1个订单添加到 `EXCHANGE_MAX_ORDERS` 过滤器和 `MAX_NUM_ORDERS` 过滤器中。
+
 **权重:**
+1
+
+**未成交的订单计数:**
 1
 
 **参数:**
@@ -2814,13 +3170,16 @@ NONE
 `stopPrice`         | DECIMAL | NO *      |
 `trailingDelta`     | INT     | NO *      | 请看 [Trailing Stop order FAQ](faqs/trailing-stop-faq_CN.md)
 `icebergQty`        | DECIMAL | NO        |
-`strategyId`        | LONG     | NO        | 标识订单策略中订单的任意ID。
+`strategyId`        | LONG    | NO        | 标识订单策略中订单的任意ID。
 `strategyType`      | INT     | NO        | <p>标识订单策略的任意数值。</p><p>小于`1000000`的值是保留的，不能使用。</p>
-`selfTradePreventionMode` |ENUM| NO | 允许的 ENUM 取决于交易对的配置。支持值：[STP 模式](./enums_CN.md#stpmodes)
+`selfTradePreventionMode` |ENUM| NO | 允许的 ENUM 取决于交易对的配置。支持值：[STP 模式](enums_CN.md#stpmodes)
+`pegPriceType`      | ENUM    | NO        | `PRIMARY_PEG` 或 `MARKET_PEG` <br> 参阅 [挂钩订单](#pegged-orders-info)
+`pegOffsetValue`    | INT     | NO        | 用于挂钩的价格水平（最大值：100） <br> 参阅 [挂钩订单](#pegged-orders-info)
+`pegOffsetType`     | ENUM    | NO        | 仅支持 `PRICE_LEVEL` <br> 参阅 [挂钩订单](#pegged-orders-info)
 `apiKey`            | STRING  | YES       |
-`recvWindow`        | INT     | NO        | 值不能大于 `60000`
+`recvWindow`        | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `signature`         | STRING  | YES       |
-`timestamp`         | INT     | YES       |
+`timestamp`         | LONG    | YES       |
 
 根据订单 `type`，<a id="order-type">某些参数(*)</a> 可能成为必需参数:
 
@@ -2999,6 +3358,15 @@ NONE
 </tbody>
 </table>
 
+<a id="pegged-orders-info"></a>
+关于挂钩订单参数的注意事项：
+
+* 这些参数仅适用于 `LIMIT`， `LIMIT_MAKER`， `STOP_LOSS_LIMIT` 和 `TAKE_PROFIT_LIMIT` 订单。
+* 如果使用了 `pegPriceType`， 那么 `price` 字段将是可选的。 否则，`price` 字段依旧是必须的。
+* `pegPriceType=PRIMARY_PEG` 就是主要挂钩（`primary`），这是订单簿上与您的订单同一方向的最佳价格。
+* `pegPriceType=MARKET_PEG` 就是市场挂钩（`market`），这是订单簿上与您的订单相反方向的最佳价格。
+* 可以通过使用 `pegOffsetType` 和 `pegOffsetValue` 来获取最佳价格以外的价格水平。 这两个参数必须一起使用。
+
 <a id="timeInForce"></a>
 
 可用的 `timeInForce` 选项，设置订单在到期前应该活跃多长时间：
@@ -3024,7 +3392,7 @@ NONE
   * `stopPrice` 必须高于市场价格：`STOP_LOSS BUY`，`TAKE_PROFIT SELL`
   * `stopPrice` 必须低于市场价格：`STOP_LOSS SELL`，`TAKE_PROFIT BUY`
 
-* 使用 `quoteOrderQty` 的 `MARKET` 订单遵循 [`LOT_SIZE`](filters_CN.md#lotsize) 过滤规则。
+* 使用 `quoteOrderQty` 的 `MARKET` 订单遵循 [`LOT_SIZE`](filters_CN.md#lot_size) 过滤规则。
 
   该订单将执行一个名义价值尽可能接近请求的 `quoteOrderQty` 的数量。
 
@@ -3038,38 +3406,38 @@ NONE
 
 ```javascript
 {
-  "id": "56374a46-3061-486b-a311-99ee972eb648",
-  "status": 200,
-  "result": {
-    "symbol": "BTCUSDT",
-    "orderId": 12569099453,
-    "orderListId": -1, // 单个订单会一直是 -1
-    "clientOrderId": "4d96324ff9d44481926157ec08158a40",
-    "transactTime": 1660801715639
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 1
+    "id": "56374a46-3061-486b-a311-99ee972eb648",
+    "status": 200,
+    "result": {
+        "symbol": "BTCUSDT",
+        "orderId": 12569099453,
+        "orderListId": -1, // 单个订单会一直是 -1
+        "clientOrderId": "4d96324ff9d44481926157ec08158a40",
+        "transactTime": 1660801715639
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 1
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 1
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 1
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -3077,49 +3445,49 @@ NONE
 
 ```javascript
 {
-  "id": "56374a46-3061-486b-a311-99ee972eb648",
-  "status": 200,
-  "result": {
-    "symbol": "BTCUSDT",
-    "orderId": 12569099453,
-    "orderListId": -1, // 单个订单会一直是 -1
-    "clientOrderId": "4d96324ff9d44481926157ec08158a40",
-    "transactTime": 1660801715639,
-    "price": "23416.10000000",
-    "origQty": "0.00847000",
-    "executedQty": "0.00000000",
-    "origQuoteOrderQty": "0.000000",
-    "cummulativeQuoteQty": "0.00000000",
-    "status": "NEW",
-    "timeInForce": "GTC",
-    "type": "LIMIT",
-    "side": "SELL",
-    "workingTime": 1660801715639,
-    "selfTradePreventionMode": "NONE"
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 1
+    "id": "56374a46-3061-486b-a311-99ee972eb648",
+    "status": 200,
+    "result": {
+        "symbol": "BTCUSDT",
+        "orderId": 12569099453,
+        "orderListId": -1, // 单个订单会一直是 -1
+        "clientOrderId": "4d96324ff9d44481926157ec08158a40",
+        "transactTime": 1660801715639,
+        "price": "23416.10000000",
+        "origQty": "0.00847000",
+        "executedQty": "0.00000000",
+        "origQuoteOrderQty": "0.000000",
+        "cummulativeQuoteQty": "0.00000000",
+        "status": "NEW",
+        "timeInForce": "GTC",
+        "type": "LIMIT",
+        "side": "SELL",
+        "workingTime": 1660801715639,
+        "selfTradePreventionMode": "NONE"
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 1
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 1
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 1
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -3127,66 +3495,66 @@ NONE
 
 ```javascript
 {
-  "id": "56374a46-3061-486b-a311-99ee972eb648",
-  "status": 200,
-  "result": {
-    "symbol": "BTCUSDT",
-    "orderId": 12569099453,
-    "orderListId": -1,
-    "clientOrderId": "4d96324ff9d44481926157ec08158a40",
-    "transactTime": 1660801715793,
-    "price": "23416.10000000",
-    "origQty": "0.00847000",
-    "executedQty": "0.00847000",
-    "origQuoteOrderQty": "0.000000",
-    "cummulativeQuoteQty": "198.33521500",
-    "status": "FILLED",
-    "timeInForce": "GTC",
-    "type": "LIMIT",
-    "side": "SELL",
-    "workingTime": 1660801715639,
-    // FULL 响应与 RESULT 响应相同，具有相同的可选字段基于订单类型和参数。FULL响应还包括立即完成订单的交易列表。
-    "fills": [
-      {
+    "id": "56374a46-3061-486b-a311-99ee972eb648",
+    "status": 200,
+    "result": {
+        "symbol": "BTCUSDT",
+        "orderId": 12569099453,
+        "orderListId": -1,
+        "clientOrderId": "4d96324ff9d44481926157ec08158a40",
+        "transactTime": 1660801715793,
         "price": "23416.10000000",
-        "qty": "0.00635000",
-        "commission": "0.000000",
-        "commissionAsset": "BNB",
-        "tradeId": 1650422481
-      },
-      {
-        "price": "23416.50000000",
-        "qty": "0.00212000",
-        "commission": "0.000000",
-        "commissionAsset": "BNB",
-        "tradeId": 1650422482
-      }
-    ],
-    "selfTradePreventionMode": "NONE"
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 1
+        "origQty": "0.00847000",
+        "executedQty": "0.00847000",
+        "origQuoteOrderQty": "0.000000",
+        "cummulativeQuoteQty": "198.33521500",
+        "status": "FILLED",
+        "timeInForce": "GTC",
+        "type": "LIMIT",
+        "side": "SELL",
+        "workingTime": 1660801715639,
+        // FULL 响应与 RESULT 响应相同，具有相同的可选字段基于订单类型和参数。FULL响应还包括立即完成订单的交易列表。
+        "fills": [
+            {
+                "price": "23416.10000000",
+                "qty": "0.00635000",
+                "commission": "0.000000",
+                "commissionAsset": "BNB",
+                "tradeId": 1650422481
+            },
+            {
+                "price": "23416.50000000",
+                "qty": "0.00212000",
+                "commission": "0.000000",
+                "commissionAsset": "BNB",
+                "tradeId": 1650422482
+            }
+        ],
+        "selfTradePreventionMode": "NONE"
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 1
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 1
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 1
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -3209,25 +3577,28 @@ NONE
 `trailingTime` | 追踪单被激活和跟踪价格变化的时间。                                  | 出现在追踪止损订单中。                                 | `"trailingTime": -1`|
 `usedSor` | 用于确定订单是否使用`SOR`的字段 | 在使用`SOR`下单时出现 |`"usedSor": true`
 `workingFloor` | 用以定义订单是通过 SOR 还是由订单提交到的订单薄（order book）成交的。   |出现在使用了 SOR 的订单中。                             |`"workingFloor": "SOR"`|
-
+`pegPriceType` |  挂钩价格类型  | 仅用于挂钩订单 | `"pegPriceType": "PRIMARY_PEG"`
+`pegOffsetType`| 挂钩价格偏移类型 | 如若需要，仅用于挂钩订单   | `"pegOffsetType": "PRICE_LEVEL"`
+`pegOffsetValue` | 挂钩价格偏移值  | 如若需要，仅用于挂钩订单   | `"pegOffsetValue": 5`
+`peggedPrice`   | 订单对应的当前挂钩价格 | 一旦确定，仅用于挂钩订单 | `"peggedPrice": "87523.83710000"`
 
 ### 测试下单 (TRADE)
 
 ```javascript
 {
-  "id": "6ffebe91-01d9-43ac-be99-57cf062e0e30",
-  "method": "order.test",
-  "params": {
-    "symbol": "BTCUSDT",
-    "side": "SELL",
-    "type": "LIMIT",
-    "timeInForce": "GTC",
-    "price": "23416.10000000",
-    "quantity": "0.00847000",
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "15af09e41c36f3cc61378c2fbe2c33719a03dd5eba8d0f9206fbda44de717c88",
-    "timestamp": 1660801715431
-  }
+    "id": "6ffebe91-01d9-43ac-be99-57cf062e0e30",
+    "method": "order.test",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "SELL",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "price": "23416.10000000",
+        "quantity": "0.00847000",
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "15af09e41c36f3cc61378c2fbe2c33719a03dd5eba8d0f9206fbda44de717c88",
+        "timestamp": 1660801715431
+    }
 }
 ```
 
@@ -3249,7 +3620,7 @@ NONE
 
 参数名                   |类型          | 是否必需    | 描述
 ------------           | ------------ | ------------ | ------------
-`computeCommissionRates` | BOOLEAN      | NO         | 默认: `false`
+`computeCommissionRates` | BOOLEAN      | NO         | 默认值： `false` <br> 请参阅[佣金常见问题解答](faqs/commission_faq_CN.md#test-order-diferences) 了解更多信息。
 
 
 **数据源:**
@@ -3261,18 +3632,18 @@ NONE
 
 ```javascript
 {
-  "id": "6ffebe91-01d9-43ac-be99-57cf062e0e30",
-  "status": 200,
-  "result": {},
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "id": "6ffebe91-01d9-43ac-be99-57cf062e0e30",
+    "status": 200,
+    "result": {},
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -3281,170 +3652,39 @@ NONE
 
 ```javascript
 {
-  "id": "6ffebe91-01d9-43ac-be99-57cf062e0e30",
-  "status": 200,
-  "result": {
-    "standardCommissionForOrder": {           // 根据订单的角色（例如，Maker或Taker）确定的佣金费率。
-      "maker": "0.00000112",
-      "taker": "0.00000114"
+    "id": "6ffebe91-01d9-43ac-be99-57cf062e0e30",
+    "status": 200,
+    "result": {
+        "standardCommissionForOrder": {  // 根据订单的角色（例如，Maker或Taker）确定的佣金费率。
+            "maker": "0.00000112",
+            "taker": "0.00000114"
+        },
+        "specialCommissionForOrder": {   // 根据订单的角色（例如，Maker或Taker）确定的特殊佣金率。
+            "maker": "0.05000000",
+            "taker": "0.06000000"
+        },
+        "taxCommissionForOrder": {       // 根据订单的角色（例如，Maker或Taker）确定的税收扣除率。
+            "maker": "0.00000112",
+            "taker": "0.00000114"
+        },
+        "discount": {                    // 以BNB支付时的标准佣金折扣。
+            "enabledForAccount": true,
+            "enabledForSymbol": true,
+            "discountAsset": "BNB",
+            "discount": "0.25000000"     // 当用BNB支付佣金时，在标准佣金上按此比率打折。
+        }
     },
-    "taxCommissionForOrder": {                 // 根据订单的角色（例如，Maker或Taker）确定的税收扣除率。
-      "maker": "0.00000112",
-      "taker": "0.00000114"
-    },
-    "discount": {                              // 以BNB支付时的标准佣金折扣。
-      "enabledForAccount": true,
-      "enabledForSymbol": true,
-      "discountAsset": "BNB",
-      "discount": "0.25000000"                 // 当用BNB支付佣金时，在标准佣金上按此比率打折。
-    }
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 20
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 20
+        }
+    ]
 }
 ```
-
-<a id="order-status"></a>
-
-### 查询订单 (USER_DATA)
-
-```javascript
-{
-  "id": "aa62318a-5a97-4f3b-bdc7-640bbe33b291",
-  "method": "order.status",
-  "params": {
-    "symbol": "BTCUSDT",
-    "orderId": 12569099453,
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "2c3aab5a078ee4ea465ecd95523b77289f61476c2f238ec10c55ea6cb11a6f35",
-    "timestamp": 1660801720951
-  }
-}
-```
-
-查询订单状态。
-
-**权重:**
-4
-
-**参数:**
-
-<table>
-<thead>
-    <tr>
-        <th>名称</th>
-        <th>类型</th>
-        <th>是否必需</th>
-        <th>描述</th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td><code>symbol</code></td>
-        <td>STRING</td>
-        <td>YES</td>
-        <td></td>
-    </tr>
-    <tr>
-        <td><code>orderId</code></td>
-        <td>INT</td>
-        <td rowspan="2">YES</td>
-        <td>按 <code>orderId</code> 查找顺序</td>
-    </tr>
-    <tr>
-        <td><code>origClientOrderId</code></td>
-        <td>STRING</td>
-        <td>按 <code>clientOrderId</code> 查找顺序</td>
-    </tr>
-    <tr>
-        <td><code>apiKey</code></td>
-        <td>STRING</td>
-        <td>YES</td>
-        <td></td>
-    </tr>
-    <tr>
-        <td><code>recvWindow</code></td>
-        <td>INT</td>
-        <td>NO</td>
-        <td>值不能大于 <tt>60000</tt></td>
-    </tr>
-    <tr>
-        <td><code>signature</code></td>
-        <td>STRING</td>
-        <td>YES</td>
-        <td></td>
-    </tr>
-    <tr>
-        <td><code>timestamp</code></td>
-        <td>INT</td>
-        <td>YES</td>
-        <td></td>
-    </tr>
-</tbody>
-</table>
-
-备注：
-
-* 如果同时指定了 `orderId` 和 `origClientOrderId` 参数，仅使用 `orderId` 并忽略 `origClientOrderId`。
-
-* 对于某些历史订单，`cummulativeQuoteQty` 响应字段可能为负数，意味着此时数据不可用。
-
-**数据源:**
-缓存 => 数据库
-
-**响应:**
-```javascript
-{
-  "id": "aa62318a-5a97-4f3b-bdc7-640bbe33b291",
-  "status": 200,
-  "result": {
-    "symbol": "BTCUSDT",
-    "orderId": 12569099453,
-    "orderListId": -1,                  // 如果是属于订单列表的订单时会出现
-    "clientOrderId": "4d96324ff9d44481926157",
-    "price": "23416.10000000",
-    "origQty": "0.00847000",
-    "executedQty": "0.00847000",
-    "origQuoteOrderQty": "0.000000",
-    "cummulativeQuoteQty": "198.33521500",
-    "status": "FILLED",
-    "timeInForce": "GTC",
-    "type": "LIMIT",
-    "side": "SELL",
-    "stopPrice": "0.00000000",          // 始终存在，如果订单类型不使用 stopPrice，则为零
-    "trailingDelta": 10,                // 如果订单设置了 trailingDelta 会出现
-    "trailingTime": -1,                 // 如果订单设置了 trailingDelta 会出现
-    "icebergQty": "0.00000000",         // 始终存在，非冰山订单为零
-    "time": 1660801715639,              // 下单时间
-    "updateTime": 1660801717945,        // 最后一次更新订单的时间
-    "isWorking": true,
-    "workingTime": 1660801715639,
-    "origQuoteOrderQty": "0.00000000"   // 始终存在，如果订单类型不使用 quoteOrderQty，则为零
-    "strategyId": 37463720,             // 如果订单设置了 strategyId  会出现
-    "strategyType": 1000000,            // 如果订单设置了 strategyType 会出现
-    "selfTradePreventionMode": "NONE",
-    "preventedMatchId": 0,              // 这仅在订单因 STP 而过期时可见
-    "preventedQuantity": "1.200000"     // 这仅在订单因 STP 而过期时可见
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 4
-    }
-  ]
-}
-```
-**注意:** 上面的 payload 没有显示所有可以出现的字段，更多请看 [订单响应中的特定条件时才会出现的字段](#conditional-fields-in-order-responses) 部分。
 
 <a id=order-cancel></a>
 
@@ -3452,15 +3692,15 @@ NONE
 
 ```javascript
 {
-  "id": "5633b6a2-90a9-4192-83e7-925c90b6a2fd",
-  "method": "order.cancel",
-  "params": {
-    "symbol": "BTCUSDT",
-    "origClientOrderId": "4d96324ff9d44481926157",
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "33d5b721f278ae17a52f004a82a6f68a70c68e7dd6776ed0be77a455ab855282",
-    "timestamp": 1660801715830
-  }
+    "id": "5633b6a2-90a9-4192-83e7-925c90b6a2fd",
+    "method": "order.cancel",
+    "params": {
+        "symbol": "BTCUSDT",
+        "origClientOrderId": "4d96324ff9d44481926157",
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "33d5b721f278ae17a52f004a82a6f68a70c68e7dd6776ed0be77a455ab855282",
+        "timestamp": 1660801715830
+    }
 }
 ```
 
@@ -3489,7 +3729,7 @@ NONE
     </tr>
     <tr>
         <td><code>orderId</code></td>
-        <td>INT</td>
+        <td>LONG</td>
         <td rowspan="2">YES</td>
         <td>按 <code>orderId</code> 取消订单</td>
     </tr>
@@ -3518,9 +3758,9 @@ NONE
     </tr>
     <tr>
         <td><code>recvWindow</code></td>
-        <td>INT</td>
+        <td>DECIMAL</td>
         <td>NO</td>
-        <td>值不能大于 <tt>60000</tt></td>
+        <td>值不能大于 <tt>60000</tt>。<br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。</td>
     </tr>
     <tr>
         <td><code>signature</code></td>
@@ -3530,7 +3770,7 @@ NONE
     </tr>
     <tr>
         <td><code>timestamp</code></td>
-        <td>INT</td>
+        <td>LONG</td>
         <td>YES</td>
         <td></td>
     </tr>
@@ -3539,11 +3779,13 @@ NONE
 
 备注：
 
-* 如果同时指定了 `orderId` 和 `origClientOrderId` 参数，仅使用 `orderId` 并忽略 `origClientOrderId`。
+* 当同时提供 `orderId` 和 `origClientOrderId` 两个参数时，系统首先将会使用 `orderId` 来搜索订单。然后， 查找结果中的 `origClientOrderId` 的值将会被用来验证订单。如果两个条件都不满足，则请求将被拒绝。
 
 * `newClientOrderId` 将替换已取消订单的 `clientOrderId`，为新订单腾出空间。
 
 * 如果您取消属于订单列表的订单，则整个订单列表将被取消。
+
+* 当仅发送 `orderId` 时,取消订单的执行(单个 Cancel 或作为 Cancel-Replace 的一部分)总是更快。发送 `origClientOrderId` 或同时发送 `orderId` + `origClientOrderId` 会稍慢。
 
 **数据源:**
 撮合引擎
@@ -3554,40 +3796,40 @@ NONE
 
 ```javascript
 {
-  "id": "5633b6a2-90a9-4192-83e7-925c90b6a2fd",
-  "status": 200,
-  "result": {
-    "symbol": "BTCUSDT",
-    "origClientOrderId": "4d96324ff9d44481926157",  // 被取消的 clientOrderId
-    "orderId": 12569099453,
-    "orderListId": -1,                              // 订单列表的ID，不然就是 -1
-    "clientOrderId": "91fe37ce9e69c90d6358c0",      // 请求的 newClientOrderId
-    "transactTime": 1684804350068,
-    "price": "23416.10000000",
-    "origQty": "0.00847000",
-    "executedQty": "0.00001000",
-    "origQuoteOrderQty": "0.000000",
-    "cummulativeQuoteQty": "0.23416100",
-    "status": "CANCELED",
-    "timeInForce": "GTC",
-    "type": "LIMIT",
-    "side": "SELL",
-    "stopPrice": "0.00000000",          // 如果订单设置了 stopPrice 会出现
-    "trailingDelta": 0,                 // 如果订单设置了 trailingDelta 会出现
-    "icebergQty": "0.00000000",         // 如果订单设置了 icebergQty 会出现
-    "strategyId": 37463720,             // 如果订单设置了 strategyId 会出现
-    "strategyType": 1000000,            // 如果订单设置了 strategyType 会出现
-    "selfTradePreventionMode": "NONE"
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
+    "id": "5633b6a2-90a9-4192-83e7-925c90b6a2fd",
+    "status": 200,
+    "result": {
+        "symbol": "BTCUSDT",
+        "origClientOrderId": "4d96324ff9d44481926157",     // 被取消的 clientOrderId
+        "orderId": 12569099453,
+        "orderListId": -1,                                 // 订单列表的ID，不然就是 -1
+        "clientOrderId": "91fe37ce9e69c90d6358c0",         // 请求的 newClientOrderId
+        "transactTime": 1684804350068,
+        "price": "23416.10000000",
+        "origQty": "0.00847000",
+        "executedQty": "0.00001000",
+        "origQuoteOrderQty": "0.000000",
+        "cummulativeQuoteQty": "0.23416100",
+        "status": "CANCELED",
+        "timeInForce": "GTC",
+        "type": "LIMIT",
+        "side": "SELL",
+        "stopPrice": "0.00000000",                         // 如果订单设置了 stopPrice 会出现
+        "trailingDelta": 0,                                // 如果订单设置了 trailingDelta 会出现
+        "icebergQty": "0.00000000",                        // 如果订单设置了 icebergQty 会出现
+        "strategyId": 37463720,                            // 如果订单设置了 strategyId 会出现
+        "strategyType": 1000000,                           // 如果订单设置了 strategyType 会出现
+        "selfTradePreventionMode": "NONE"
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 2
+        }
+    ]
 }
 ```
 
@@ -3595,78 +3837,78 @@ NONE
 
 ```javascript
 {
- "id": "16eaf097-bbec-44b9-96ff-e97e6e875870",
-  "status": 200,
-  "result": {
-    "orderListId": 19431,
-    "contingencyType": "OCO",
-    "listStatusType": "ALL_DONE",
-    "listOrderStatus": "ALL_DONE",
-    "listClientOrderId": "iuVNVJYYrByz6C4yGOPPK0",
-    "transactionTime": 1660803702431,
-    "symbol": "BTCUSDT",
-    "orders": [
-      {
-        "symbol": "BTCUSDT",
-        "orderId": 12569099453,
-        "clientOrderId": "bX5wROblo6YeDwa9iTLeyY"
-      },
-      {
-        "symbol": "BTCUSDT",
-        "orderId": 12569099454,
-        "clientOrderId": "Tnu2IP0J5Y4mxw3IATBfmW"
-      }
-    ],
-    // 订单列表的状态格式与单个订单相同。
-    "orderReports": [
-      {
-        "symbol": "BTCUSDT",
-        "origClientOrderId": "bX5wROblo6YeDwa9iTLeyY",
-        "orderId": 12569099453,
+    "id": "16eaf097-bbec-44b9-96ff-e97e6e875870",
+    "status": 200,
+    "result": {
         "orderListId": 19431,
-        "clientOrderId": "OFFXQtxVFZ6Nbcg4PgE2DA",
-        "transactTime": 1684804350068,
-        "price": "23450.50000000",
-        "origQty": "0.00850000"
-        "executedQty": "0.00000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.00000000",
-        "status": "CANCELED",
-        "timeInForce": "GTC",
-        "type": "STOP_LOSS_LIMIT",
-        "side": "BUY",
-        "stopPrice": "23430.00000000",
-        "selfTradePreventionMode": "NONE"
-      },
-      {
+        "contingencyType": "OCO",
+        "listStatusType": "ALL_DONE",
+        "listOrderStatus": "ALL_DONE",
+        "listClientOrderId": "iuVNVJYYrByz6C4yGOPPK0",
+        "transactionTime": 1660803702431,
         "symbol": "BTCUSDT",
-        "origClientOrderId": "Tnu2IP0J5Y4mxw3IATBfmW",
-        "orderId": 12569099454,
-        "orderListId": 19431,
-        "clientOrderId": "OFFXQtxVFZ6Nbcg4PgE2DA",
-        "transactTime": 1684804350068,
-        "price": "23400.00000000",
-        "origQty": "0.00850000"
-        "executedQty": "0.00000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.00000000",
-        "status": "CANCELED",
-        "timeInForce": "GTC",
-        "type": "LIMIT_MAKER",
-        "side": "BUY",
-        "selfTradePreventionMode": "NONE"
-      }
+        "orders": [
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569099453,
+                "clientOrderId": "bX5wROblo6YeDwa9iTLeyY"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569099454,
+                "clientOrderId": "Tnu2IP0J5Y4mxw3IATBfmW"
+            }
+        ],
+        // 订单列表的状态格式与单个订单相同。
+        "orderReports": [
+            {
+                "symbol": "BTCUSDT",
+                "origClientOrderId": "bX5wROblo6YeDwa9iTLeyY",
+                "orderId": 12569099453,
+                "orderListId": 19431,
+                "clientOrderId": "OFFXQtxVFZ6Nbcg4PgE2DA",
+                "transactTime": 1684804350068,
+                "price": "23450.50000000",
+                "origQty": "0.00850000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "CANCELED",
+                "timeInForce": "GTC",
+                "type": "STOP_LOSS_LIMIT",
+                "side": "BUY",
+                "stopPrice": "23430.00000000",
+                "selfTradePreventionMode": "NONE"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "origClientOrderId": "Tnu2IP0J5Y4mxw3IATBfmW",
+                "orderId": 12569099454,
+                "orderListId": 19431,
+                "clientOrderId": "OFFXQtxVFZ6Nbcg4PgE2DA",
+                "transactTime": 1684804350068,
+                "price": "23400.00000000",
+                "origQty": "0.00850000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "CANCELED",
+                "timeInForce": "GTC",
+                "type": "LIMIT_MAKER",
+                "side": "BUY",
+                "selfTradePreventionMode": "NONE"
+            }
+        ]
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
     ]
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
 }
 ```
 **注意:** 上面的 payload 没有显示所有可以出现的字段，更多请看 [订单响应中的特定条件时才会出现的字段](#conditional-fields-in-order-responses) 部分。
@@ -3694,27 +3936,32 @@ NONE
 
 ```javascript
 {
-  "id": "99de1036-b5e2-4e0f-9b5c-13d751c93a1a",
-  "method": "order.cancelReplace",
-  "params": {
-    "symbol": "BTCUSDT",
-    "cancelReplaceMode": "ALLOW_FAILURE",
-    "cancelOrigClientOrderId": "4d96324ff9d44481926157",
-    "side": "SELL",
-    "type": "LIMIT",
-    "timeInForce": "GTC",
-    "price": "23416.10000000",
-    "quantity": "0.00847000",
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "7028fdc187868754d25e42c37ccfa5ba2bab1d180ad55d4c3a7e2de643943dc5",
-    "timestamp": 1660813156900
-  }
+    "id": "99de1036-b5e2-4e0f-9b5c-13d751c93a1a",
+    "method": "order.cancelReplace",
+    "params": {
+        "symbol": "BTCUSDT",
+        "cancelReplaceMode": "ALLOW_FAILURE",
+        "cancelOrigClientOrderId": "4d96324ff9d44481926157",
+        "side": "SELL",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "price": "23416.10000000",
+        "quantity": "0.00847000",
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "7028fdc187868754d25e42c37ccfa5ba2bab1d180ad55d4c3a7e2de643943dc5",
+        "timestamp": 1660813156900
+    }
 }
 ```
 
 撤消挂单并在同个交易对上重新下单。
 
+即使请求中没有尝试发送新订单，比如(`newOrderResult: NOT_ATTEMPTED`)，未成交订单的数量仍然会加1。
+
 **权重:**
+1
+
+**未成交的订单计数:**
 1
 
 **参数:**
@@ -3743,7 +3990,7 @@ NONE
     </tr>
     <tr>
         <td><code>cancelOrderId</code></td>
-        <td>INT</td>
+        <td>LONG</td>
         <td rowspan="2">YES</td>
         <td>按 <code>orderId</code> 取消订单</td>
     </tr>
@@ -3851,7 +4098,7 @@ NONE
         <td>NO</td>
         <td>
             <p>允许的 ENUM 取决于交易对的配置。</p>
-            <p>支持的值有： <tt>EXPIRE_TAKER</tt>, <tt>EXPIRE_MAKER</tt>, <tt>EXPIRE_BOTH</tt>, <tt>NONE</tt>.</p>
+            <p>支持的值有： <a href="enums_CN.md#stpmodes">STP 模式</a>。</p>
         </td>
     </tr>
     <tr>
@@ -3873,10 +4120,28 @@ NONE
         <td>支持的值： <br> <code>DO_NOTHING</code> （默认值） - 仅在账户未超过未成交订单频率限制时，会尝试取消订单。<br> <code>CANCEL_ONLY</code> - 将始终取消订单。</td>
     </tr>
     <tr>
-        <td><code>recvWindow</code></td>
+        <td><code>pegPriceType</code></td>
+        <td>ENUM</td>
+        <td>NO</td>
+        <td><code>PRIMARY_PEG</code> 或 <code>MARKET_PEG</code>。 <br> 参阅 <a href="#pegged-orders-info">挂钩订单</a>"</td>
+    </tr>
+    <tr>
+        <td><code>pegOffsetValue</code></td>
         <td>INT</td>
         <td>NO</td>
-        <td>值不能大于 <tt>60000</tt></td>
+        <td>用于价格挂钩的价格水平（最大值：100） <br> 参阅 <a href="#pegged-orders-info">挂钩订单</a></td>
+    </tr>
+    <tr>
+        <td><code>pegOffsetType</code></td>
+        <td>ENUM</td>
+        <td>NO</td>
+        <td>仅支持 <code>PRICE_LEVEL</code> <br> 参阅 <a href="#pegged-orders-info">挂钩订单</a></td>
+    </tr>
+    <tr>
+        <td><code>recvWindow</code></td>
+        <td>DECIMAL</td>
+        <td>NO</td>
+        <td>值不能大于 <tt>60000</tt>。<br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。</td>
     </tr>
     <tr>
         <td><code>signature</code></td>
@@ -3886,7 +4151,7 @@ NONE
     </tr>
     <tr>
         <td><code>timestamp</code></td>
-        <td>INT</td>
+        <td>LONG</td>
         <td>YES</td>
         <td></td>
     </tr>
@@ -4070,7 +4335,7 @@ NONE
 
 备注：
 
-* 如果同时指定了 `cancelOrderId` 和 `cancelOrigClientOrderId` 参数，仅使用 `cancelOrderId` 并忽略 `cancelOrigClientOrderId`。
+* 当同时提供 `cancelOrderId` 和 `cancelOrigClientOrderId` 两个参数时，系统首先将会使用 `cancelOrderId` 来搜索订单。然后， 查找结果中的 `cancelOrigClientOrderId` 的值将会被用来验证订单。如果两个条件都不满足，则请求将被拒绝。
 
 * `cancelNewClientOrderId` 将替换已撤销订单的 `clientOrderId`，为新订单腾出空间。
 
@@ -4092,6 +4357,8 @@ NONE
 
 * 与 [`order.cancel`](#order-cancel) 一样，如果您撤销订单列表内的某个订单，则整个订单列表将被撤销。
 
+* 当仅发送 `orderId` 时,取消订单的执行(单个 Cancel 或作为 Cancel-Replace 的一部分)总是更快。发送 `origClientOrderId` 或同时发送 `orderId` + `origClientOrderId` 会稍慢。
+
 **数据源:**
 撮合引擎
 
@@ -4101,74 +4368,74 @@ NONE
 
 ```javascript
 {
-  "id": "99de1036-b5e2-4e0f-9b5c-13d751c93a1a",
-  "status": 200,
-  "result": {
-    "cancelResult": "SUCCESS",
-    "newOrderResult": "SUCCESS",
-    // 格式与 "order.cancel" 格式相同。
-    // 某些字段是可选的，仅在订单中有设置它们时才包括。
-    "cancelResponse": {
-      "symbol": "BTCUSDT",
-      "origClientOrderId": "4d96324ff9d44481926157",  // 请求的 cancelOrigClientOrderId
-      "orderId": 125690984230,
-      "orderListId": -1,
-      "clientOrderId": "91fe37ce9e69c90d6358c0",      // 请求的 cancelNewClientOrderId
-      "transactTime": 1684804350068,
-      "price": "23450.00000000",
-      "origQty": "0.00847000",
-      "executedQty": "0.00001000",
-      "origQuoteOrderQty": "0.000000",
-      "cummulativeQuoteQty": "0.23450000",
-      "status": "CANCELED",
-      "timeInForce": "GTC",
-      "type": "LIMIT",
-      "side": "SELL",
-      "selfTradePreventionMode": "NONE"
+    "id": "99de1036-b5e2-4e0f-9b5c-13d751c93a1a",
+    "status": 200,
+    "result": {
+        "cancelResult": "SUCCESS",
+        "newOrderResult": "SUCCESS",
+        // 格式与 "order.cancel" 格式相同。
+        // 某些字段是可选的，仅在订单中有设置它们时才包括。
+        "cancelResponse": {
+            "symbol": "BTCUSDT",
+            "origClientOrderId": "4d96324ff9d44481926157",     // 请求的 cancelOrigClientOrderId
+            "orderId": 125690984230,
+            "orderListId": -1,
+            "clientOrderId": "91fe37ce9e69c90d6358c0",         // 请求的 cancelNewClientOrderId
+            "transactTime": 1684804350068,
+            "price": "23450.00000000",
+            "origQty": "0.00847000",
+            "executedQty": "0.00001000",
+            "origQuoteOrderQty": "0.000000",
+            "cummulativeQuoteQty": "0.23450000",
+            "status": "CANCELED",
+            "timeInForce": "GTC",
+            "type": "LIMIT",
+            "side": "SELL",
+            "selfTradePreventionMode": "NONE"
+        },
+        // 格式与 "order.place" 格式相同, 受 "newOrderRespType" 影响。
+        // 某些字段是可选的，仅在订单中有设置它们时才包括。
+        "newOrderResponse": {
+            "symbol": "BTCUSDT",
+            "orderId": 12569099453,
+            "orderListId": -1,
+            "clientOrderId": "bX5wROblo6YeDwa9iTLeyY",         // 请求的 newClientOrderId
+            "transactTime": 1660813156959,
+            "price": "23416.10000000",
+            "origQty": "0.00847000",
+            "executedQty": "0.00000000",
+            "origQuoteOrderQty": "0.000000",
+            "cummulativeQuoteQty": "0.00000000",
+            "status": "NEW",
+            "timeInForce": "GTC",
+            "type": "LIMIT",
+            "side": "SELL",
+            "selfTradePreventionMode": "NONE"
+        }
     },
-    // 格式与 "order.place" 格式相同, 受 "newOrderRespType" 影响。
-    // 某些字段是可选的，仅在订单中有设置它们时才包括。
-    "newOrderResponse": {
-      "symbol": "BTCUSDT",
-      "orderId": 12569099453,
-      "orderListId": -1,
-      "clientOrderId": "bX5wROblo6YeDwa9iTLeyY",      // 请求的 newClientOrderId
-      "transactTime": 1660813156959,
-      "price": "23416.10000000",
-      "origQty": "0.00847000",
-      "executedQty": "0.00000000",
-      "origQuoteOrderQty": "0.000000",
-      "cummulativeQuoteQty": "0.00000000",
-      "status": "NEW",
-      "timeInForce": "GTC",
-      "type": "LIMIT",
-      "side": "SELL",
-      "selfTradePreventionMode": "NONE"
-    }
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 1
-    },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 1
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 1
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 1
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -4176,44 +4443,44 @@ NONE
 
 ```javascript
 {
-  "id": "27e1bf9f-0539-4fb0-85c6-06183d36f66c",
-  "status": 400,
-  "error": {
-    "code": -2022,
-    "msg": "Order cancel-replace failed.",
-    "data": {
-      "cancelResult": "FAILURE",
-      "newOrderResult": "NOT_ATTEMPTED",
-      "cancelResponse": {
-        "code": -2011,
-        "msg": "Unknown order sent."
-      },
-      "newOrderResponse": null
-    }
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 1
+    "id": "27e1bf9f-0539-4fb0-85c6-06183d36f66c",
+    "status": 400,
+    "error": {
+        "code": -2022,
+        "msg": "Order cancel-replace failed.",
+        "data": {
+            "cancelResult": "FAILURE",
+            "newOrderResult": "NOT_ATTEMPTED",
+            "cancelResponse": {
+                "code": -2011,
+                "msg": "Unknown order sent."
+            },
+            "newOrderResponse": null
+        }
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 1
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 1
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 1
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -4221,120 +4488,120 @@ NONE
 
 ```javascript
 {
-  "id": "b220edfe-f3c4-4a3a-9d13-b35473783a25",
-  "status": 409,
-  "error": {
-    "code": -2021,
-    "msg": "Order cancel-replace partially failed.",
-    "data": {
-      "cancelResult": "SUCCESS",
-      "newOrderResult": "FAILURE",
-      "cancelResponse": {
-        "symbol": "BTCUSDT",
-        "origClientOrderId": "4d96324ff9d44481926157",
-        "orderId": 125690984230,
-        "orderListId": -1,
-        "clientOrderId": "91fe37ce9e69c90d6358c0",
-        "transactTime": 1684804350068,
-        "price": "23450.00000000",
-        "origQty": "0.00847000",
-        "executedQty": "0.00001000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.23450000",
-        "status": "CANCELED",
-        "timeInForce": "GTC",
-        "type": "LIMIT",
-        "side": "SELL",
-        "selfTradePreventionMode": "NONE"
-      },
-      "newOrderResponse": {
-        "code": -2010,
-        "msg": "Order would immediately match and take."
-      }
-    }
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 1
+    "id": "b220edfe-f3c4-4a3a-9d13-b35473783a25",
+    "status": 409,
+    "error": {
+        "code": -2021,
+        "msg": "Order cancel-replace partially failed.",
+        "data": {
+            "cancelResult": "SUCCESS",
+            "newOrderResult": "FAILURE",
+            "cancelResponse": {
+                "symbol": "BTCUSDT",
+                "origClientOrderId": "4d96324ff9d44481926157",
+                "orderId": 125690984230,
+                "orderListId": -1,
+                "clientOrderId": "91fe37ce9e69c90d6358c0",
+                "transactTime": 1684804350068,
+                "price": "23450.00000000",
+                "origQty": "0.00847000",
+                "executedQty": "0.00001000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.23450000",
+                "status": "CANCELED",
+                "timeInForce": "GTC",
+                "type": "LIMIT",
+                "side": "SELL",
+                "selfTradePreventionMode": "NONE"
+            },
+            "newOrderResponse": {
+                "code": -2010,
+                "msg": "Order would immediately match and take."
+            }
+        }
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 1
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 1
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 1
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
 ```javascript
 {
-  "id": "ce641763-ff74-41ac-b9f7-db7cbe5e93b1",
-  "status": 409,
-  "error": {
-    "code": -2021,
-    "msg": "Order cancel-replace partially failed.",
-    "data": {
-      "cancelResult": "FAILURE",
-      "newOrderResult": "SUCCESS",
-      "cancelResponse": {
-        "code": -2011,
-        "msg": "Unknown order sent."
-      },
-      "newOrderResponse": {
-        "symbol": "BTCUSDT",
-        "orderId": 12569099453,
-        "orderListId": -1,
-        "clientOrderId": "bX5wROblo6YeDwa9iTLeyY",
-        "transactTime": 1660813156959,
-        "price": "23416.10000000",
-        "origQty": "0.00847000",
-        "executedQty": "0.00000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.00000000",
-        "status": "NEW",
-        "timeInForce": "GTC",
-        "type": "LIMIT",
-        "side": "SELL",
-        "selfTradePreventionMode": "NONE"
-      }
-    }
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 1
+    "id": "ce641763-ff74-41ac-b9f7-db7cbe5e93b1",
+    "status": 409,
+    "error": {
+        "code": -2021,
+        "msg": "Order cancel-replace partially failed.",
+        "data": {
+            "cancelResult": "FAILURE",
+            "newOrderResult": "SUCCESS",
+            "cancelResponse": {
+                "code": -2011,
+                "msg": "Unknown order sent."
+            },
+            "newOrderResponse": {
+                "symbol": "BTCUSDT",
+                "orderId": 12569099453,
+                "orderListId": -1,
+                "clientOrderId": "bX5wROblo6YeDwa9iTLeyY",
+                "transactTime": 1660813156959,
+                "price": "23416.10000000",
+                "origQty": "0.00847000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "NEW",
+                "timeInForce": "GTC",
+                "type": "LIMIT",
+                "side": "SELL",
+                "selfTradePreventionMode": "NONE"
+            }
+        }
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 1
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 1
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 1
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -4342,47 +4609,47 @@ NONE
 
 ```javascript
 {
-  "id": "3b3ac45c-1002-4c7d-88e8-630c408ecd87",
-  "status": 400,
-  "error": {
-    "code": -2022,
-    "msg": "Order cancel-replace failed.",
-    "data": {
-      "cancelResult": "FAILURE",
-      "newOrderResult": "FAILURE",
-      "cancelResponse": {
-        "code": -2011,
-        "msg": "Unknown order sent."
-      },
-      "newOrderResponse": {
-        "code": -2010,
-        "msg": "Order would immediately match and take."
-      }
-    }
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 1
+    "id": "3b3ac45c-1002-4c7d-88e8-630c408ecd87",
+    "status": 400,
+    "error": {
+        "code": -2022,
+        "msg": "Order cancel-replace failed.",
+        "data": {
+            "cancelResult": "FAILURE",
+            "newOrderResult": "FAILURE",
+            "cancelResponse": {
+                "code": -2011,
+                "msg": "Unknown order sent."
+            },
+            "newOrderResponse": {
+                "code": -2010,
+                "msg": "Order would immediately match and take."
+            }
+        }
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 1
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 1
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 1
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -4390,35 +4657,35 @@ NONE
 
 ```javascript
 {
-  "id": "3b3ac45c-1002-4c7d-88e8-630c408ecd87",
-  "status": 429,
-  "error": {
-    "code": -1015,
-    "msg": "Too many new orders; current limit is 50 orders per 10 SECOND."
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 50
+    "id": "3b3ac45c-1002-4c7d-88e8-630c408ecd87",
+    "status": 429,
+    "error": {
+        "code": -1015,
+        "msg": "Too many new orders; current limit is 50 orders per 10 SECOND."
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 50
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 50
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 50
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -4426,156 +4693,212 @@ NONE
 
 ```javascript
 {
-  "id": "3b3ac45c-1002-4c7d-88e8-630c408ecd87",
-  "status": 409,
-  "error": {
-    "code": -2021,
-    "msg": "Order cancel-replace partially failed.",
-    "data": {
-      "cancelResult": "SUCCESS",
-      "newOrderResult": "FAILURE",
-      "cancelResponse": {
-        "symbol": "LTCBNB",
-        "origClientOrderId": "GKt5zzfOxRDSQLveDYCTkc",
-        "orderId": 64,
-        "orderListId": -1,
-        "clientOrderId": "loehOJF3FjoreUBDmv739R",
-        "transactTime": 1715779007228,
-        "price": "1.00",
-        "origQty": "10.00000000",
-        "executedQty": "0.00000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.00",
-        "status": "CANCELED",
-        "timeInForce": "GTC",
-        "type": "LIMIT",
-        "side": "SELL",
-        "selfTradePreventionMode": "NONE"
-      },
-      "newOrderResponse": {
-        "code": -1015,
-        "msg": "Too many new orders; current limit is 50 orders per 10 SECOND."
-      }
-    }
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 50
+    "id": "3b3ac45c-1002-4c7d-88e8-630c408ecd87",
+    "status": 409,
+    "error": {
+        "code": -2021,
+        "msg": "Order cancel-replace partially failed.",
+        "data": {
+            "cancelResult": "SUCCESS",
+            "newOrderResult": "FAILURE",
+            "cancelResponse": {
+                "symbol": "LTCBNB",
+                "origClientOrderId": "GKt5zzfOxRDSQLveDYCTkc",
+                "orderId": 64,
+                "orderListId": -1,
+                "clientOrderId": "loehOJF3FjoreUBDmv739R",
+                "transactTime": 1715779007228,
+                "price": "1.00",
+                "origQty": "10.00000000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.00",
+                "status": "CANCELED",
+                "timeInForce": "GTC",
+                "type": "LIMIT",
+                "side": "SELL",
+                "selfTradePreventionMode": "NONE"
+            },
+            "newOrderResponse": {
+                "code": -1015,
+                "msg": "Too many new orders; current limit is 50 orders per 10 SECOND."
+            }
+        }
     },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 50
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 50
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 50
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
 **注意:** 上面的 payload 没有显示所有可以出现的字段，更多请看 [订单响应中的特定条件时才会出现的字段](#conditional-fields-in-order-responses) 部分。
 
-### 当前挂单 (USER_DATA)
+### 修改订单并保留优先级 (TRADE)
 
 ```javascript
 {
-  "id": "55f07876-4f6f-4c47-87dc-43e5fff3f2e7",
-  "method": "openOrders.status",
-  "params": {
-    "symbol": "BTCUSDT",
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "d632b3fdb8a81dd44f82c7c901833309dd714fe508772a89b0a35b0ee0c48b89",
-    "timestamp": 1660813156812
-  }
+    "id": "56374a46-3061-486b-a311-89ee972eb648",
+    "method": "order.amend.keepPriority",
+    "params": {
+        "newQty": "5",
+        "origClientOrderId": "my_test_order1",
+        "recvWindow": 5000,
+        "symbol": "BTCUSDT",
+        "timestamp": 1741922620419,
+        "apiKey": "Rl1KOMDCpSg6xviMYOkNk9ENUB5QOTnufXukVe0Ijd40yduAlpHn78at3rJyJN4F",
+        "signature": "fa49c0c4ebc331c6ebd3fcb20deb387f60081ea858eebe6e35aa6fcdf2a82e08"
+    }
 }
 ```
 
-查询所有挂订单的执行状态。
+由客户发送以减少其现有当前挂单的原始数量。
 
-如果您需要持续监控订单状态更新，请考虑使用 WebSocket Streams：
+这个请求会把0个订单添加到 `EXCHANGE_MAX_ORDERS` 过滤器和 `MAX_NUM_ORDERS` 过滤器中。
 
-* [`userDataStream.start`](#user-data-stream-requests) 请求
-* [`executionReport`](./user-data-stream_CN.md#executionReport) 更新
+请阅读 [保留优先权的修改订单常见问题](faqs/order_amend_keep_priority_CN.md) 了解更多信息。
 
 **权重:**
-根据交易对的数量进行调整：
+4
 
-| 参数 | 重量 |
-| --------- | ------ |
-| `symbol`  |      6 |
-| none      |     80 |
+**未成交的订单计数:**
+0
 
 **参数:**
 
-名称                | 类型    | 是否必需 | 描述
-------------------- | ------- | --------- | ------------
-`symbol`            | STRING  | NO        | 如果省略，则返回所有交易对的挂单
-`apiKey`            | STRING  | YES       |
-`recvWindow`        | INT     | NO        | 值不能大于 `60000`
-`signature`         | STRING  | YES       |
-`timestamp`         | INT     | YES       |
+名称 | 类型 | 是否必需 | 描述
+------------ | ------------ | ------------ | ------------
+ `symbol` | STRING | YES |
+ `orderId` | LONG | NO\* | 需提供 `orderId` 或 `origClientOrderId`。
+ `origClientOrderId` | STRING | NO\* | 需提供 `orderId` 或 `origClientOrderId`。
+ `newClientOrderId` | STRING | NO\* | 订单在被修改后被赋予的新 client order ID。 <br> 如果未发送则自动生成。 <br> 可以将当前 clientOrderId 作为 `newClientOrderId` 发送来重用当前 clientOrderId 的值。
+ `newQty` | DECIMAL | YES | 交易的新数量。 `newQty` 必须大于0, 但是必须比订单的原始数量小。
+ `recvWindow` | DECIMAL | NO | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
+ `timestamp` |LONG   |NO        |
+
 
 **数据源:**
-缓存 => 数据库
+撮合引擎
 
 **响应:**
 
-挂单的状态报告与 [`order.status`](#order-status) 相同。
-
-请注意，某些字段是可选的，仅在订单中有设置它们时才包括。
-
-挂订单始终作为平面列表返回。
-如果所有交易对被请求，请使用 `symbol` 字段来告知订单属于哪个交易对。
+来自单个订单的响应：
 
 ```javascript
 {
-  "id": "55f07876-4f6f-4c47-87dc-43e5fff3f2e7",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BTCUSDT",
-      "orderId": 12569099453,
-      "orderListId": -1,
-      "clientOrderId": "4d96324ff9d44481926157",
-      "price": "23416.10000000",
-      "origQty": "0.00847000",
-      "executedQty": "0.00720000",
-      "origQuoteOrderQty": "0.000000",
-      "cummulativeQuoteQty": "172.43931000",
-      "status": "PARTIALLY_FILLED",
-      "timeInForce": "GTC",
-      "type": "LIMIT",
-      "side": "SELL",
-      "stopPrice": "0.00000000",
-      "icebergQty": "0.00000000",
-      "time": 1660801715639,
-      "updateTime": 1660801717945,
-      "isWorking": true,
-      "workingTime": 1660801715639,
-      "origQuoteOrderQty": "0.00000000",
-      "selfTradePreventionMode": "NONE"
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 6
-    }
-  ]
+    "id": "56374a46-3061-486b-a311-89ee972eb648",
+    "status": 200,
+    "result": {
+        "transactTime": 1741923284382,
+        "executionId": 16,
+        "amendedOrder": {
+            "symbol": "BTCUSDT",
+            "orderId": 12,
+            "orderListId": -1,
+            "origClientOrderId": "my_test_order1",
+            "clientOrderId": "4zR9HFcEq8gM1tWUqPEUHc",
+            "price": "5.00000000",
+            "qty": "5.00000000",
+            "executedQty": "0.00000000",
+            "preventedQty": "0.00000000",
+            "quoteOrderQty": "0.00000000",
+            "cumulativeQuoteQty": "0.00000000",
+            "status": "NEW",
+            "timeInForce": "GTC",
+            "type": "LIMIT",
+            "side": "BUY",
+            "workingTime": 1741923284364,
+            "selfTradePreventionMode": "NONE"
+        }
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
+}
+```
+
+来自订单列表中单个订单的响应：
+
+```javascript
+{
+    "id": "56374b46-3061-486b-a311-89ee972eb648",
+    "status": 200,
+    "result": {
+        "transactTime": 1741924229819,
+        "executionId": 60,
+        "amendedOrder": {
+            "symbol": "BTUCSDT",
+            "orderId": 23,
+            "orderListId": 4,
+            "origClientOrderId": "my_pending_order",
+            "clientOrderId": "xbxXh5SSwaHS7oUEOCI88B",
+            "price": "1.00000000",
+            "qty": "5.00000000",
+            "executedQty": "0.00000000",
+            "preventedQty": "0.00000000",
+            "quoteOrderQty": "0.00000000",
+            "cumulativeQuoteQty": "0.00000000",
+            "status": "NEW",
+            "timeInForce": "GTC",
+            "type": "LIMIT",
+            "side": "BUY",
+            "workingTime": 1741924204920,
+            "selfTradePreventionMode": "NONE"
+        },
+        "listStatus": {
+            "orderListId": 4,
+            "contingencyType": "OTO",
+            "listOrderStatus": "EXECUTING",
+            "listClientOrderId": "8nOGLLawudj1QoOiwbroRH",
+            "symbol": "BTCUSDT",
+            "orders": [
+                {
+                    "symbol": "BTCUSDT",
+                    "orderId": 22,
+                    "clientOrderId": "g04EWsjaackzedjC9wRkWD"
+                },
+                {
+                    "symbol": "BTCUSDT",
+                    "orderId": 23,
+                    "clientOrderId": "xbxXh5SSwaHS7oUEOCI88B"
+                }
+            ]
+        }
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -4585,14 +4908,14 @@ NONE
 
 ```javascript
 {
-  "id": "778f938f-9041-4b88-9914-efbf64eeacc8",
-  "method": "openOrders.cancelAll"
-  "params": {
-    "symbol": "BTCUSDT",
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "773f01b6e3c2c9e0c1d217bc043ce383c1ddd6f0e25f8d6070f2b66a6ceaf3a5",
-    "timestamp": 1660805557200
-  }
+    "id": "778f938f-9041-4b88-9914-efbf64eeacc8",
+    "method": "openOrders.cancelAll",
+    "params": {
+        "symbol": "BTCUSDT",
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "773f01b6e3c2c9e0c1d217bc043ce383c1ddd6f0e25f8d6070f2b66a6ceaf3a5",
+        "timestamp": 1660805557200
+    }
 }
 ```
 
@@ -4607,9 +4930,9 @@ NONE
 ------------------- | ------- | --------- | ------------
 `symbol`            | STRING  | YES       |
 `apiKey`            | STRING  | YES       |
-`recvWindow`        | INT     | NO        | 值不能大于 `60000`
+`recvWindow`        | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `signature`         | STRING  | YES       |
-`timestamp`         | INT     | YES       |
+`timestamp`         | LONG    | YES       |
 
 **数据源:**
 撮合引擎
@@ -4620,101 +4943,103 @@ NONE
 
 ```javascript
 {
-  "id": "778f938f-9041-4b88-9914-efbf64eeacc8",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BTCUSDT",
-      "origClientOrderId": "4d96324ff9d44481926157",
-      "orderId": 12569099453,
-      "orderListId": -1,
-      "clientOrderId": "91fe37ce9e69c90d6358c0",
-      "price": "23416.10000000",
-      "origQty": "0.00847000",
-      "executedQty": "0.00001000",
-      "origQuoteOrderQty": "0.000000",
-      "cummulativeQuoteQty": "0.23416100",
-      "status": "CANCELED",
-      "timeInForce": "GTC",
-      "type": "LIMIT",
-      "side": "SELL",
-      "stopPrice": "0.00000000",
-      "trailingDelta": 0,
-      "icebergQty": "0.00000000",
-      "strategyId": 37463720,
-      "strategyType": 1000000,
-      "selfTradePreventionMode": "NONE"
-    },
-    {
-      "orderListId": 19431,
-      "contingencyType": "OCO",
-      "listStatusType": "ALL_DONE",
-      "listOrderStatus": "ALL_DONE",
-      "listClientOrderId": "iuVNVJYYrByz6C4yGOPPK0",
-      "transactionTime": 1660803702431,
-      "symbol": "BTCUSDT",
-      "orders": [
+    "id": "778f938f-9041-4b88-9914-efbf64eeacc8",
+    "status": 200,
+    "result": [
         {
-          "symbol": "BTCUSDT",
-          "orderId": 12569099453,
-          "clientOrderId": "bX5wROblo6YeDwa9iTLeyY"
+            "symbol": "BTCUSDT",
+            "origClientOrderId": "4d96324ff9d44481926157",
+            "orderId": 12569099453,
+            "orderListId": -1,
+            "clientOrderId": "91fe37ce9e69c90d6358c0",
+            "transactTime": 1684804350068,
+            "price": "23416.10000000",
+            "origQty": "0.00847000",
+            "executedQty": "0.00001000",
+            "origQuoteOrderQty": "0.000000",
+            "cummulativeQuoteQty": "0.23416100",
+            "status": "CANCELED",
+            "timeInForce": "GTC",
+            "type": "LIMIT",
+            "side": "SELL",
+            "stopPrice": "0.00000000",
+            "trailingDelta": 0,
+            "trailingTime": -1,
+            "icebergQty": "0.00000000",
+            "strategyId": 37463720,
+            "strategyType": 1000000,
+            "selfTradePreventionMode": "NONE"
         },
         {
-          "symbol": "BTCUSDT",
-          "orderId": 12569099454,
-          "clientOrderId": "Tnu2IP0J5Y4mxw3IATBfmW"
+            "orderListId": 19431,
+            "contingencyType": "OCO",
+            "listStatusType": "ALL_DONE",
+            "listOrderStatus": "ALL_DONE",
+            "listClientOrderId": "iuVNVJYYrByz6C4yGOPPK0",
+            "transactionTime": 1660803702431,
+            "symbol": "BTCUSDT",
+            "orders": [
+                {
+                    "symbol": "BTCUSDT",
+                    "orderId": 12569099453,
+                    "clientOrderId": "bX5wROblo6YeDwa9iTLeyY"
+                },
+                {
+                    "symbol": "BTCUSDT",
+                    "orderId": 12569099454,
+                    "clientOrderId": "Tnu2IP0J5Y4mxw3IATBfmW"
+                }
+            ],
+            "orderReports": [
+                {
+                    "symbol": "BTCUSDT",
+                    "origClientOrderId": "bX5wROblo6YeDwa9iTLeyY",
+                    "orderId": 12569099453,
+                    "orderListId": 19431,
+                    "clientOrderId": "OFFXQtxVFZ6Nbcg4PgE2DA",
+                    "transactTime": 1684804350068,
+                    "price": "23450.50000000",
+                    "origQty": "0.00850000",
+                    "executedQty": "0.00000000",
+                    "origQuoteOrderQty": "0.000000",
+                    "cummulativeQuoteQty": "0.00000000",
+                    "status": "CANCELED",
+                    "timeInForce": "GTC",
+                    "type": "STOP_LOSS_LIMIT",
+                    "side": "BUY",
+                    "stopPrice": "23430.00000000",
+                    "selfTradePreventionMode": "NONE"
+                },
+                {
+                    "symbol": "BTCUSDT",
+                    "origClientOrderId": "Tnu2IP0J5Y4mxw3IATBfmW",
+                    "orderId": 12569099454,
+                    "orderListId": 19431,
+                    "clientOrderId": "OFFXQtxVFZ6Nbcg4PgE2DA",
+                    "transactTime": 1684804350068,
+                    "price": "23400.00000000",
+                    "origQty": "0.00850000",
+                    "executedQty": "0.00000000",
+                    "origQuoteOrderQty": "0.000000",
+                    "cummulativeQuoteQty": "0.00000000",
+                    "status": "CANCELED",
+                    "timeInForce": "GTC",
+                    "type": "LIMIT_MAKER",
+                    "side": "BUY",
+                    "selfTradePreventionMode": "NONE"
+                }
+            ]
         }
-      ],
-      "orderReports": [
+    ],
+    "rateLimits": [
         {
-          "symbol": "BTCUSDT",
-          "origClientOrderId": "bX5wROblo6YeDwa9iTLeyY",
-          "orderId": 12569099453,
-          "orderListId": 19431,
-          "clientOrderId": "OFFXQtxVFZ6Nbcg4PgE2DA",
-          "transactTime": 1684804350068,
-          "price": "23450.50000000",
-          "origQty": "0.00850000",
-          "executedQty": "0.00000000",
-          "origQuoteOrderQty": "0.000000",
-          "cummulativeQuoteQty": "0.00000000",
-          "status": "CANCELED",
-          "timeInForce": "GTC",
-          "type": "STOP_LOSS_LIMIT",
-          "side": "BUY",
-          "stopPrice": "23430.00000000",
-          "selfTradePreventionMode": "NONE"
-        },
-        {
-          "symbol": "BTCUSDT",
-          "origClientOrderId": "Tnu2IP0J5Y4mxw3IATBfmW",
-          "orderId": 12569099454,
-          "orderListId": 19431,
-          "clientOrderId": "OFFXQtxVFZ6Nbcg4PgE2DA",
-          "transactTime": 1684804350068,
-          "price": "23400.00000000",
-          "origQty": "0.00850000",
-          "executedQty": "0.00000000",
-          "origQuoteOrderQty": "0.000000",
-          "cummulativeQuoteQty": "0.00000000",
-          "status": "CANCELED",
-          "timeInForce": "GTC",
-          "type": "LIMIT_MAKER",
-          "side": "BUY",
-          "selfTradePreventionMode": "NONE"
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
         }
-      ]
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    ]
 }
 ```
 
@@ -4726,28 +5051,33 @@ NONE
 
 ```javascript
 {
-  "id": "56374a46-3061-486b-a311-99ee972eb648",
-  "method": "orderList.place",
-  "params": {
-    "symbol": "BTCUSDT",
-    "side": "SELL",
-    "price": "23420.00000000",
-    "quantity": "0.00650000",
-    "stopPrice": "23410.00000000",
-    "stopLimitPrice": "23405.00000000",
-    "stopLimitTimeInForce": "GTC",
-    "newOrderRespType": "RESULT",
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "6689c2a36a639ff3915c2904871709990ab65f3c7a9ff13857558fd350315c35",
-    "timestamp": 1660801713767
-  }
+    "id": "56374a46-3061-486b-a311-99ee972eb648",
+    "method": "orderList.place",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "SELL",
+        "price": "23420.00000000",
+        "quantity": "0.00650000",
+        "stopPrice": "23410.00000000",
+        "stopLimitPrice": "23405.00000000",
+        "stopLimitTimeInForce": "GTC",
+        "newOrderRespType": "RESULT",
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "6689c2a36a639ff3915c2904871709990ab65f3c7a9ff13857558fd350315c35",
+        "timestamp": 1660801713767
+    }
 }
 ```
 
 发送新的OCO(one-cancels-the-other) 订单:
 `LIMIT_MAKER` 订单 + `STOP_LOSS`/`STOP_LOSS_LIMIT` 订单(称呼为 *legs*), 其中一个订单的激活会立即取消另一个订单。
 
+这个请求会把1个订单添加到 `EXCHANGE_MAX_ORDERS` 过滤器和 `MAX_NUM_ORDERS` 过滤器中。
+
 **权重:**
+1
+
+**未成交的订单计数:**
 1
 
 **参数:**
@@ -4774,9 +5104,9 @@ NONE
 `newOrderRespType`  | ENUM    | NO        | 可选的响应格式: `ACK`，`RESULT`，`FULL` (默认)
 `selfTradePreventionMode` |ENUM| NO | 允许的 ENUM 取决于交易对的配置。支持的值有：[STP 模式](./enums_CN.md#stpmodes)
 `apiKey`            | STRING  | YES       |
-`recvWindow`        | INT     | NO        | 值不能大于 `60000`
+`recvWindow`        | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `signature`         | STRING  | YES       |
-`timestamp`         | INT     | YES       |
+`timestamp`         | LONG    | YES       |
 
 备注：
 
@@ -4801,8 +5131,6 @@ NONE
 
 * `trailingDelta` 仅适用于 OCO 的 `STOP_LOSS`/`STOP_LOSS_LIMIT` leg。
 
-* `OCO` 将**2个订单**添加到未成交的订单计数， `EXCHANGE_MAX_ORDERS` 过滤器和 `MAX_NUM_ORDERS` 过滤器中。
-
 **数据源:**
 撮合引擎
 
@@ -4814,91 +5142,91 @@ NONE
 
 ```javascript
 {
-  "id": "57833dc0-e3f2-43fb-ba20-46480973b0aa",
-  "status": 200,
-  "result": {
-    "orderListId": 1274512,
-    "contingencyType": "OCO",
-    "listStatusType": "EXEC_STARTED",
-    "listOrderStatus": "EXECUTING",
-    "listClientOrderId": "08985fedd9ea2cf6b28996",
-    "transactionTime": 1660801713793,
-    "symbol": "BTCUSDT",
-    "orders": [
-      {
-        "symbol": "BTCUSDT",
-        "orderId": 12569138901,
-        "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU"
-      },
-      {
-        "symbol": "BTCUSDT",
-        "orderId": 12569138902,
-        "clientOrderId": "jLnZpj5enfMXTuhKB1d0us"
-      }
-    ],
-    "orderReports": [
-      {
-        "symbol": "BTCUSDT",
-        "orderId": 12569138901,
+    "id": "57833dc0-e3f2-43fb-ba20-46480973b0aa",
+    "status": 200,
+    "result": {
         "orderListId": 1274512,
-        "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU",
-        "transactTime": 1660801713793,
-        "price": "23410.00000000",
-        "origQty": "0.00650000",
-        "executedQty": "0.00000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.00000000",
-        "status": "NEW",
-        "timeInForce": "GTC",
-        "type": "STOP_LOSS_LIMIT",
-        "side": "SELL",
-        "stopPrice": "23405.00000000",
-        "workingTime": -1,
-        "selfTradePreventionMode": "NONE"
-      },
-      {
+        "contingencyType": "OCO",
+        "listStatusType": "EXEC_STARTED",
+        "listOrderStatus": "EXECUTING",
+        "listClientOrderId": "08985fedd9ea2cf6b28996",
+        "transactionTime": 1660801713793,
         "symbol": "BTCUSDT",
-        "orderId": 12569138902,
-        "orderListId": 1274512,
-        "clientOrderId": "jLnZpj5enfMXTuhKB1d0us",
-        "transactTime": 1660801713793,
-        "price": "23420.00000000",
-        "origQty": "0.00650000",
-        "executedQty": "0.00000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.00000000",
-        "status": "NEW",
-        "timeInForce": "GTC",
-        "type": "LIMIT_MAKER",
-        "side": "SELL",
-        "workingTime": 1660801713793,
-        "selfTradePreventionMode": "NONE"
-      }
+        "orders": [
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569138901,
+                "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569138902,
+                "clientOrderId": "jLnZpj5enfMXTuhKB1d0us"
+            }
+        ],
+        "orderReports": [
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569138901,
+                "orderListId": 1274512,
+                "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU",
+                "transactTime": 1660801713793,
+                "price": "23410.00000000",
+                "origQty": "0.00650000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "NEW",
+                "timeInForce": "GTC",
+                "type": "STOP_LOSS_LIMIT",
+                "side": "SELL",
+                "stopPrice": "23405.00000000",
+                "workingTime": -1,
+                "selfTradePreventionMode": "NONE"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569138902,
+                "orderListId": 1274512,
+                "clientOrderId": "jLnZpj5enfMXTuhKB1d0us",
+                "transactTime": 1660801713793,
+                "price": "23420.00000000",
+                "origQty": "0.00650000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "NEW",
+                "timeInForce": "GTC",
+                "type": "LIMIT_MAKER",
+                "side": "SELL",
+                "workingTime": 1660801713793,
+                "selfTradePreventionMode": "NONE"
+            }
+        ]
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 2
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 2
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
     ]
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 2
-    },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 2
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
 }
 ```
 <a id="orderlist-place-oco"></a>
@@ -4906,27 +5234,24 @@ NONE
 
 ```javascript
 {
-  "id": "56374a46-3261-486b-a211-99ed972eb648",
-  "method": "orderList.place.oco",
-  "params":
-  {
-    "symbol": "LTCBNB",
-    "side": "BUY",
-    "quantity": 1,
-    "timestamp": 1711062760647,
-    "aboveType": "STOP_LOSS_LIMIT",
-    "abovePrice": "1.5",
-    "aboveStopPrice": "1.50000001",
-    "aboveTimeInForce": "GTC",
-    "belowType": "LIMIT_MAKER",
-    "belowPrice": "1.49999999",
-    "apiKey": "duwNf97YPLqhFIk7kZF0dDdGYVAXStA7BeEz0fIT9RAhUbixJtyS6kJ3hhzJsRXC",
-    "signature": "64614cfd8dd38260d4fd86d3c455dbf4b9d1c8a8170ea54f700592a986c30ddb"
-  }
+    "id": "56374a46-3261-486b-a211-99ed972eb648",
+    "method": "orderList.place.oco",
+    "params": {
+        "symbol": "LTCBNB",
+        "side": "BUY",
+        "quantity": 1,
+        "timestamp": 1711062760647,
+        "aboveType": "STOP_LOSS_LIMIT",
+        "abovePrice": "1.5",
+        "aboveStopPrice": "1.50000001",
+        "aboveTimeInForce": "GTC",
+        "belowType": "LIMIT_MAKER",
+        "belowPrice": "1.49999999",
+        "apiKey": "duwNf97YPLqhFIk7kZF0dDdGYVAXStA7BeEz0fIT9RAhUbixJtyS6kJ3hhzJsRXC",
+        "signature": "64614cfd8dd38260d4fd86d3c455dbf4b9d1c8a8170ea54f700592a986c30ddb"
+    }
 }
 ```
-
-**权重:** 1
 
 发送新 one-cancels-the-other (OCO) 订单，激活其中一个订单会立即取消另一个订单。
 
@@ -4939,14 +5264,20 @@ NONE
   * 如果 OCO 订单方向是 `BUY`：
     * `LIMIT_MAKER` `price` < 最后交易价格 < `STOP_LOSS/STOP_LOSS_LIMIT` `stopPrice`
     * `TAKE_PROFIT` `stopPrice` > 最后交易价格 > `STOP_LOSS/STOP_LOSS_LIMIT` `stopPrice`
-* OCO 将**2 个订单**添加到未成交订单计数、`EXCHANGE_MAX_ORDERS`过滤器和 `MAX_NUM_ORDERS` 过滤器中。
+* OCO 将**2 个订单**添加到 `EXCHANGE_MAX_ORDERS`过滤器和 `MAX_NUM_ORDERS` 过滤器中。
+
+**权重:**
+1
+
+**未成交的订单计数:**
+2
 
 **参数:**
 
 名称                      | 类型   | 是否必需 | 描述
 ----                     |------  | -----     |----
 `symbol`                 |STRING  |YES        |
-`listClientOrderId`      |STRING  |NO         |整个订单列表的唯一ID。 如果未发送则自动生成。 <br> 仅当前一个订单已填满或完全过期时，才会接受具有相同的`listClientOrderId`。 <br> `listClientOrderId` 与 `aboveClientOrderId` 和 `belowCLientOrderId` 不同。
+`listClientOrderId`      |STRING  |NO         |整个订单列表的唯一ID。 如果未发送则自动生成。 <br> 仅当前一个订单已填满或完全过期时，才会接受具有相同的`listClientOrderId`。<br> `listClientOrderId` 与 `aboveClientOrderId` 和 `belowCLientOrderId` 不同。
 `side`                   |ENUM    |YES        |订单方向：`BUY` or `SELL`
 `quantity`               |DECIMAL |YES        |两个订单的数量。
 `aboveType`              |ENUM    |YES        |支持值：`STOP_LOSS_LIMIT`, `STOP_LOSS`, `LIMIT_MAKER`, `TAKE_PROFIT`, `TAKE_PROFIT_LIMIT`。
@@ -4955,9 +5286,12 @@ NONE
 `abovePrice`             |DECIMAL |NO         |当 `aboveType` 是 `STOP_LOSS_LIMIT`, `LIMIT_MAKER` 或 `TAKE_PROFIT_LIMIT` 时，可用以指定限价。
 `aboveStopPrice`         |DECIMAL |NO         |如果 `aboveType` 是 `STOP_LOSS`, `STOP_LOSS_LIMIT`, `TAKE_PROFIT` 或 `TAKE_PROFIT_LIMIT` 才能使用。<br> 必须指定 `aboveStopPrice` 或 `aboveTrailingDelta` 或两者。
 `aboveTrailingDelta`     |LONG    |NO         |请看 [追踪止盈止损(Trailing Stop)订单常见问题](faqs/trailing-stop-faq_CN.md).
-`aboveTimeInForce`       |DECIMAL |NO         |如果 `aboveType` 是 `STOP_LOSS_LIMIT` 或 `TAKE_PROFIT_LIMIT`，则为必填项。
-`aboveStrategyId`        |LONG     |NO         |订单策略中上方订单的 ID。
+`aboveTimeInForce`       |ENUM    |NO         |如果 `aboveType` 是 `STOP_LOSS_LIMIT` 或 `TAKE_PROFIT_LIMIT`，则为必填项。
+`aboveStrategyId`        |LONG    |NO         |订单策略中上方订单的 ID。
 `aboveStrategyType`      |INT     |NO         |上方订单策略的任意数值。<br>小于 `1000000` 的值被保留，无法使用。
+`abovePegPriceType`      |ENUM    |NO         |参阅 [挂钩订单](#pegged-orders-info)
+`abovePegOffsetType`     |ENUM    |NO         |
+`abovePegOffsetValue`    |INT     |NO         |
 `belowType`              |ENUM    |YES        |支持值：`STOP_LOSS`, `STOP_LOSS_LIMIT`, `TAKE_PROFIT`,`TAKE_PROFIT_LIMIT`。
 `belowClientOrderId`     |STRING  |NO         |
 `belowIcebergQty`        |LONG    |NO         |请注意，只有当 `belowTimeInForce` 为 `GTC` 时才能使用。
@@ -4967,10 +5301,13 @@ NONE
 `belowTimeInForce`       |ENUM    |NO         |如果`belowType` 是 `STOP_LOSS_LIMIT` 或 `TAKE_PROFIT_LIMIT`，则为必须配合提交的值。
 `belowStrategyId`        |LONG     |NO          |订单策略中下方订单的 ID。
 `belowStrategyType`      |INT     |NO         |下方订单策略的任意数值。<br>小于 `1000000` 的值被保留，无法使用。
+`belowPegPriceType`      |ENUM    |NO         |参阅 [挂钩订单](#pegged-orders-info)
+`belowPegOffsetType`     |ENUM    |NO         |
+`belowPegOffsetValue`    |INT     |NO         |
 `newOrderRespType`       |ENUM    |NO         |响应格式可选值: `ACK`, `RESULT`, `FULL`。
 `selfTradePreventionMode`|ENUM    |NO         |允许的 ENUM 取决于交易对上的配置。 可能支持的值为：[STP 模式](./enums_CN.md#stpmodes)
 `apiKey`                 |STRING  |YES        |
-`recvWindow`             |LONG    |NO         |不能大于 `60000`。
+`recvWindow`             |DECIMAL |NO         |最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `signature`              |STRING  |YES        |
 `timestamp`              |LONG    |YES        |
 
@@ -4983,95 +5320,91 @@ NONE
 
 ```javascript
 {
-  "id": "56374a46-3261-486b-a211-99ed972eb648",
-  "status": 200,
-  "result":
-  {
-    "orderListId": 2,
-    "contingencyType": "OCO",
-    "listStatusType": "EXEC_STARTED",
-    "listOrderStatus": "EXECUTING",
-    "listClientOrderId": "cKPMnDCbcLQILtDYM4f4fX",
-    "transactionTime": 1711062760648,
-    "symbol": "LTCBNB",
-    "orders":
-    [
-      {
-        "symbol": "LTCBNB",
-        "orderId": 2,
-        "clientOrderId": "0m6I4wfxvTUrOBSMUl0OPU"
-      },
-      {
-        "symbol": "LTCBNB",
-        "orderId": 3,
-        "clientOrderId": "Z2IMlR79XNY5LU0tOxrWyW"
-      }
-    ],
-    "orderReports":
-    [
-      {
-        "symbol": "LTCBNB",
-        "orderId": 2,
+    "id": "56374a46-3261-486b-a211-99ed972eb648",
+    "status": 200,
+    "result": {
         "orderListId": 2,
-        "clientOrderId": "0m6I4wfxvTUrOBSMUl0OPU",
-        "transactTime": 1711062760648,
-        "price": "1.50000000",
-        "origQty": "1.000000",
-        "executedQty": "0.000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.00000000",
-        "status": "NEW",
-        "timeInForce": "GTC",
-        "type": "STOP_LOSS_LIMIT",
-        "side": "BUY",
-        "stopPrice": "1.50000001",
-        "workingTime": -1,
-        "selfTradePreventionMode": "NONE"
-      },
-      {
+        "contingencyType": "OCO",
+        "listStatusType": "EXEC_STARTED",
+        "listOrderStatus": "EXECUTING",
+        "listClientOrderId": "cKPMnDCbcLQILtDYM4f4fX",
+        "transactionTime": 1711062760648,
         "symbol": "LTCBNB",
-        "orderId": 3,
-        "orderListId": 2,
-        "clientOrderId": "Z2IMlR79XNY5LU0tOxrWyW",
-        "transactTime": 1711062760648,
-        "price": "1.49999999",
-        "origQty": "1.000000",
-        "executedQty": "0.000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.00000000",
-        "status": "NEW",
-        "timeInForce": "GTC",
-        "type": "LIMIT_MAKER",
-        "side": "BUY",
-        "workingTime": 1711062760648,
-        "selfTradePreventionMode": "NONE"
-      }
+        "orders": [
+            {
+                "symbol": "LTCBNB",
+                "orderId": 2,
+                "clientOrderId": "0m6I4wfxvTUrOBSMUl0OPU"
+            },
+            {
+                "symbol": "LTCBNB",
+                "orderId": 3,
+                "clientOrderId": "Z2IMlR79XNY5LU0tOxrWyW"
+            }
+        ],
+        "orderReports": [
+            {
+                "symbol": "LTCBNB",
+                "orderId": 2,
+                "orderListId": 2,
+                "clientOrderId": "0m6I4wfxvTUrOBSMUl0OPU",
+                "transactTime": 1711062760648,
+                "price": "1.50000000",
+                "origQty": "1.000000",
+                "executedQty": "0.000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "NEW",
+                "timeInForce": "GTC",
+                "type": "STOP_LOSS_LIMIT",
+                "side": "BUY",
+                "stopPrice": "1.50000001",
+                "workingTime": -1,
+                "selfTradePreventionMode": "NONE"
+            },
+            {
+                "symbol": "LTCBNB",
+                "orderId": 3,
+                "orderListId": 2,
+                "clientOrderId": "Z2IMlR79XNY5LU0tOxrWyW",
+                "transactTime": 1711062760648,
+                "price": "1.49999999",
+                "origQty": "1.000000",
+                "executedQty": "0.000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "NEW",
+                "timeInForce": "GTC",
+                "type": "LIMIT_MAKER",
+                "side": "BUY",
+                "workingTime": 1711062760648,
+                "selfTradePreventionMode": "NONE"
+            }
+        ]
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 2
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 2
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
     ]
-  },
-  "rateLimits":
-  [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 2
-    },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 2
-    },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
 }
 ```
 
@@ -5080,23 +5413,23 @@ NONE
 
 ```javascript
 {
-  "id": "1712544395950",
-  "method": "orderList.place.oto",
-  "params": {
-    "signature": "3e1e5ac8690b0caf9a2afd5c5de881ceba69939cc9d817daead5386bf65d0cbb",
-    "apiKey": "Rf07JlnL9PHVxjs27O5CvKNyOsV4qJ5gXdrRfpvlOdvMZbGZbPO5Ce2nIwfRP0iA",
-    "pendingQuantity": 1,
-    "pendingSide": "BUY",
-    "pendingType": "MARKET",
-    "symbol": "LTCBNB",
-    "recvWindow": "5000",
-    "timestamp": "1712544395951",
-    "workingPrice": 1,
-    "workingQuantity": 1,
-    "workingSide": "SELL",
-    "workingTimeInForce": "GTC",
-    "workingType": "LIMIT"
-  }
+    "id": "1712544395950",
+    "method": "orderList.place.oto",
+    "params": {
+        "signature": "3e1e5ac8690b0caf9a2afd5c5de881ceba69939cc9d817daead5386bf65d0cbb",
+        "apiKey": "Rf07JlnL9PHVxjs27O5CvKNyOsV4qJ5gXdrRfpvlOdvMZbGZbPO5Ce2nIwfRP0iA",
+        "pendingQuantity": 1,
+        "pendingSide": "BUY",
+        "pendingType": "MARKET",
+        "symbol": "LTCBNB",
+        "recvWindow": "5000",
+        "timestamp": "1712544395951",
+        "workingPrice": 1,
+        "workingQuantity": 1,
+        "workingSide": "SELL",
+        "workingTimeInForce": "GTC",
+        "workingType": "LIMIT"
+    }
 }
 ```
 
@@ -5107,9 +5440,13 @@ NONE
 * 第二个订单被称为**待处理订单**。它可以是任何订单类型，但不包括使用参数 `quoteOrderQty` 的 `MARKET` 订单。只有当生效订单**完全成交**时，待处理订单才会被自动下单。
 * 如果生效订单或者待处理订单中的任意一个被单独取消，订单列表中剩余的那个订单也会被随之取消或过期。
 * 如果生效订单在下订单列表后**立即完全成交**，则可能会得到订单响应。其中，生效订单的状态为 `FILLED` ，但待处理订单的状态为 `PENDING_NEW`。针对这类情况，如果需要检查当前状态，您可以查询相关的待处理订单。
-* `OTO` 订单将**2 个订单**添加到未成交订单计数，`EXCHANGE_MAX_NUM_ORDERS` 过滤器和 `MAX_NUM_ORDERS` 过滤器中。
+* `OTO` 订单将**2 个订单**添加到 `EXCHANGE_MAX_NUM_ORDERS` 过滤器和 `MAX_NUM_ORDERS` 过滤器中。
 
-**权重:** 1
+**权重:**
+1
+
+**未成交的订单计数:**
+2
 
 **参数:**
 
@@ -5124,10 +5461,13 @@ NONE
 `workingClientOrderId`   |STRING |NO        |用于标识生效订单的唯一ID。 <br> 如果未发送则自动生成。
 `workingPrice`           |DECIMAL|YES       |
 `workingQuantity`        |DECIMAL|YES       |用于设置生效订单的数量。
-`workingIcebergQty`      |DECIMAL|NO       |只有当 `workingTimeInForce` 为 `GTC` 时才能使用。
-`workingTimeInForce`     |ENUM   |NO        |支持的数值： [生效时间](#timeinforce)
-`workingStrategyId`      |LONG    |NO        |订单策略中用于标识生效订单的 ID。
+`workingIcebergQty`      |DECIMAL|NO       |仅当 `workingTimeInForce` 为 `GTC` 或 `workingType` 为 `LIMIT_MAKER` 时，才能使用此功能。
+`workingTimeInForce`     |ENUM   |NO        |支持的数值： [生效时间](./enums_CN.md#timeinforce)
+`workingStrategyId`      |LONG   |NO        |订单策略中用于标识生效订单的 ID。
 `workingStrategyType`    |INT    |NO        |用于标识生效订单策略的任意数值。<br> 小于 `1000000` 的值被保留，无法使用。
+`workingPegPriceType`    |ENUM   |NO        |参阅 [挂钩订单](#pegged-orders-info)
+`workingPegOffsetType`   |ENUM   |NO        |
+`workingPegOffsetValue`  |INT    |NO        |
 `pendingType`            |ENUM   |YES       |支持的数值： [订单类型](#order-type)<br> 请注意，系统不支持使用 `quoteOrderQty` 的 `MARKET` 订单。
 `pendingSide`            |ENUM   |YES       |支持的数值： [订单方向](./enums_CN.md#side)
 `pendingClientOrderId`   |STRING |NO        |用于标识待处理订单的唯一ID。 <br> 如果未发送则自动生成。
@@ -5136,10 +5476,13 @@ NONE
 `pendingTrailingDelta`   |DECIMAL|NO        |
 `pendingQuantity`        |DECIMAL|YES       |用于设置待处理订单的数量。
 `pendingIcebergQty`      |DECIMAL|NO        |只有当 `pendingTimeInForce` 为 `GTC` 时才能使用。
-`pendingTimeInForce`     |ENUM   |NO        |支持的数值： [生效时间](#timeinforce)
-`pendingStrategyId`      |LONG    |NO        |订单策略中用于标识待处理订单的 ID。
+`pendingTimeInForce`     |ENUM   |NO        |支持的数值： [生效时间](./enums_CN.md#timeinforce)
+`pendingStrategyId`      |LONG   |NO        |订单策略中用于标识待处理订单的 ID。
 `pendingStrategyType`    |INT    |NO        |用于标识待处理订单策略的任意数值。 <br> 小于 `1000000` 的值被保留，无法使用。
-`recvWindow`             |LONG   |NO        |不能大于 `60000`。
+`pendingPegOffsetType`   |ENUM   |NO        |参阅 [挂钩订单](#pegged-orders-info)
+`pendingPegPriceType`    |ENUM   |NO        |
+`pendingPegOffsetValue`  |INT    |NO        |
+`recvWindow`             |DECIMAL|NO        |最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `timestamp`              |LONG   |YES       |
 `signature`              |STRING |YES       |
 
@@ -5163,83 +5506,83 @@ NONE
 
 ```javascript
 {
-  "id": "1712544395950",
-  "status": 200,
-  "result": {
-    "orderListId": 626,
-    "contingencyType": "OTO",
-    "listStatusType": "EXEC_STARTED",
-    "listOrderStatus": "EXECUTING",
-    "listClientOrderId": "KA4EBjGnzvSwSCQsDdTrlf",
-    "transactionTime": 1712544395981,
-    "symbol": "1712544378871",
-    "orders": [
-      {
-        "symbol": "LTCBNB",
-        "orderId": 13,
-        "clientOrderId": "YiAUtM9yJjl1a2jXHSp9Ny"
-      },
-      {
-        "symbol": "LTCBNB",
-        "orderId": 14,
-        "clientOrderId": "9MxJSE1TYkmyx5lbGLve7R"
-      }
-    ],
-    "orderReports": [
-      {
-        "symbol": "LTCBNB",
-        "orderId": 13,
+    "id": "1712544395950",
+    "status": 200,
+    "result": {
         "orderListId": 626,
-        "clientOrderId": "YiAUtM9yJjl1a2jXHSp9Ny",
-        "transactTime": 1712544395981,
-        "price": "1.000000",
-        "origQty": "1.000000",
-        "executedQty": "0.000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.000000",
-        "status": "NEW",
-        "timeInForce": "GTC",
-        "type": "LIMIT",
-        "side": "SELL",
-        "workingTime": 1712544395981,
-        "selfTradePreventionMode": "NONE"
-      },
-      {
-        "symbol": "LTCBNB",
-        "orderId": 14,
-        "orderListId": 626,
-        "clientOrderId": "9MxJSE1TYkmyx5lbGLve7R",
-        "transactTime": 1712544395981,
-        "price": "0.000000",
-        "origQty": "1.000000",
-        "executedQty": "0.000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.000000",
-        "status": "PENDING_NEW",
-        "timeInForce": "GTC",
-        "type": "MARKET",
-        "side": "BUY",
-        "workingTime": -1,
-        "selfTradePreventionMode": "NONE"
-      }
-    ]
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 10000000,
-      "count": 10
+        "contingencyType": "OTO",
+        "listStatusType": "EXEC_STARTED",
+        "listOrderStatus": "EXECUTING",
+        "listClientOrderId": "KA4EBjGnzvSwSCQsDdTrlf",
+        "transactionTime": 1712544395981,
+        "symbol": "1712544378871",
+        "orders": [
+            {
+                "symbol": "LTCBNB",
+                "orderId": 13,
+                "clientOrderId": "YiAUtM9yJjl1a2jXHSp9Ny"
+            },
+            {
+                "symbol": "LTCBNB",
+                "orderId": 14,
+                "clientOrderId": "9MxJSE1TYkmyx5lbGLve7R"
+            }
+        ],
+        "orderReports": [
+            {
+                "symbol": "LTCBNB",
+                "orderId": 13,
+                "orderListId": 626,
+                "clientOrderId": "YiAUtM9yJjl1a2jXHSp9Ny",
+                "transactTime": 1712544395981,
+                "price": "1.000000",
+                "origQty": "1.000000",
+                "executedQty": "0.000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.000000",
+                "status": "NEW",
+                "timeInForce": "GTC",
+                "type": "LIMIT",
+                "side": "SELL",
+                "workingTime": 1712544395981,
+                "selfTradePreventionMode": "NONE"
+            },
+            {
+                "symbol": "LTCBNB",
+                "orderId": 14,
+                "orderListId": 626,
+                "clientOrderId": "9MxJSE1TYkmyx5lbGLve7R",
+                "transactTime": 1712544395981,
+                "price": "0.000000",
+                "origQty": "1.000000",
+                "executedQty": "0.000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.000000",
+                "status": "PENDING_NEW",
+                "timeInForce": "GTC",
+                "type": "MARKET",
+                "side": "BUY",
+                "workingTime": -1,
+                "selfTradePreventionMode": "NONE"
+            }
+        ]
     },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 1000,
-      "count": 38
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 10000000,
+            "count": 10
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 1000,
+            "count": 38
+        }
+    ]
 }
 ```
 
@@ -5249,26 +5592,26 @@ NONE
 
 ```javascript
 {
-  "id": "1712544408508",
-  "method": "orderList.place.otoco",
-  "params": {
-    "signature": "c094473304374e1b9c5f7e2558358066cfa99df69f50f63d09cfee755136cb07",
-    "apiKey": "Rf07JlnL9PHVxjs27O5CvKNyOsV4qJ5gXdrRfpvlOdvMZbGZbPO5Ce2nIwfRP0iA",
-    "pendingQuantity": 5,
-    "pendingSide": "SELL",
-    "pendingBelowPrice": 5,
-    "pendingBelowType": "LIMIT_MAKER",
-    "pendingAboveStopPrice": 0.5,
-    "pendingAboveType": "STOP_LOSS",
-    "symbol": "LTCBNB",
-    "recvWindow": "5000",
-    "timestamp": "1712544408509",
-    "workingPrice": 1.5,
-    "workingQuantity": 1,
-    "workingSide": "BUY",
-    "workingTimeInForce": "GTC",
-    "workingType": "LIMIT"
-  }
+    "id": "1712544408508",
+    "method": "orderList.place.otoco",
+    "params": {
+        "signature": "c094473304374e1b9c5f7e2558358066cfa99df69f50f63d09cfee755136cb07",
+        "apiKey": "Rf07JlnL9PHVxjs27O5CvKNyOsV4qJ5gXdrRfpvlOdvMZbGZbPO5Ce2nIwfRP0iA",
+        "pendingQuantity": 5,
+        "pendingSide": "SELL",
+        "pendingBelowPrice": 5,
+        "pendingBelowType": "LIMIT_MAKER",
+        "pendingAboveStopPrice": 0.5,
+        "pendingAboveType": "STOP_LOSS",
+        "symbol": "LTCBNB",
+        "recvWindow": "5000",
+        "timestamp": "1712544408509",
+        "workingPrice": 1.5,
+        "workingQuantity": 1,
+        "workingSide": "BUY",
+        "workingTimeInForce": "GTC",
+        "workingType": "LIMIT"
+    }
 }
 ```
 
@@ -5279,9 +5622,13 @@ NONE
     * 生效订单的行为与此一致 [OTO](#orderList-place-oto)
 * 一个OTOCO订单有两个待处理订单（pending above 和 pending below），它们构成了一个 OCO 订单列表。只有当生效订单**完全成交**时，待处理订单们才会被自动下单。
     * 待处理上方(pending above)订单和待处理下方(pending below)订单都遵循与 OCO 订单列表相同的规则 [Order List OCO](#orderlist-place-oco)。
-* `OTOCO` 在未成交订单计数，`EXCHANGE_MAX_NUM_ORDERS` 过滤器和 `MAX_NUM_ORDERS` 过滤器的基础上添加**3个订单**。
+* `OTOCO` 在 `EXCHANGE_MAX_NUM_ORDERS` 过滤器和 `MAX_NUM_ORDERS` 过滤器的基础上添加**3个订单**。
 
-**权重:** 1
+**权重:**
+1
+
+**未成交的订单计数:**
+3
 
 **参数:**
 
@@ -5290,16 +5637,19 @@ NONE
 `symbol`                   |STRING |YES       |
 `listClientOrderId`        |STRING |NO        |整个订单列表的唯一ID。 如果未发送则自动生成。 <br> 仅当前一个订单列表已填满或完全过期时，才会接受含有相同 `listClientOrderId` 值的新订单列表。 <br>  `listClientOrderId` 与 `workingClientOrderId`， `pendingAboveClientOrderId` 以及 `pendingBelowClientOrderId` 不同。
 `newOrderRespType`         |ENUM   |NO        |用于设置JSON响应的格式。 支持的数值： [订单返回类型](./enums_CN.md#orderresponsetype)
-`selfTradePreventionMode`  |ENUM   |NO        |允许的数值取决于交易对上的配置。参考 [STP 模式](./enums_CN.md#stpmodes)
+`selfTradePreventionMode`  |ENUM   |NO        |允许的数值取决于交易对上的配置。支持的数值： [STP 模式](./enums_CN.md#stpmodes)
 `workingType`              |ENUM   |YES       |支持的数值： `LIMIT`，`LIMIT_MAKER`
 `workingSide`              |ENUM   |YES       |支持的数值： [订单方向](./enums_CN.md#side)
 `workingClientOrderId`     |STRING |NO        |用于标识生效订单的唯一ID。 <br> 如果未发送则自动生成。
 `workingPrice`             |DECIMAL|YES       |
-`workingQuantity`          |DECIMAL|YES        |
-`workingIcebergQty`        |DECIMAL|NO        |只有当 `workingTimeInForce` 为 `GTC` 时才能使用。
-`workingTimeInForce`       |ENUM   |NO        |支持的数值： [生效时间](#timeinforce)
+`workingQuantity`          |DECIMAL|YES       |
+`workingIcebergQty`        |DECIMAL|NO        |仅当 `workingTimeInForce` 为 `GTC` 或 `workingType` 为 `LIMIT_MAKER` 时，才能使用此功能。
+`workingTimeInForce`       |ENUM   |NO        |支持的数值： [生效时间](./enums_CN.md#timeinforce)
 `workingStrategyId`        |LONG    |NO        |订单策略中用于标识生效订单的 ID。
 `workingStrategyType`      |INT    |NO        |用于标识生效订单策略的任意数值。<br> 小于 `1000000` 的值被保留，无法使用。
+`workingPegPriceType`      |ENUM   |NO        |参阅 [挂钩订单](#pegged-orders-info)
+`workingPegOffsetType`     |ENUM   |NO        |
+`workingPegOffsetValue`    |INT    |NO        |
 `pendingSide`              |ENUM   |YES       |支持的数值： [订单方向](./enums_CN.md#side)
 `pendingQuantity`          |DECIMAL|YES       |
 `pendingAboveType`         |ENUM   |YES       |支持的数值： `STOP_LOSS_LIMIT`, `STOP_LOSS`, `LIMIT_MAKER`, `TAKE_PROFIT`, `TAKE_PROFIT_LIMIT`
@@ -5311,16 +5661,22 @@ NONE
 `pendingAboveTimeInForce`  |ENUM   |NO        |
 `pendingAboveStrategyId`   |LONG    |NO        |订单策略中用于标识待处理上方订单的 ID。
 `pendingAboveStrategyType` |INT    |NO        |用于标识待处理上方订单策略的任意数值。 <br> 小于 `1000000` 的值被保留，无法使用。
+`pendingAbovePegPriceType` |ENUM   |NO        |参阅 [挂钩订单](#pegged-orders-info)
+`pendingAbovePegOffsetType`|ENUM   |NO        |
+`pendingAbovePegOffsetValue` |INT  |NO        |
 `pendingBelowType`         |ENUM   |NO        |支持的数值： `STOP_LOSS`, `STOP_LOSS_LIMIT`, `TAKE_PROFIT`, `TAKE_PROFIT_LIMIT`
 `pendingBelowClientOrderId`|STRING |NO        |用于标识待处理下方订单的唯一ID。 <br> 如果未发送则自动生成。
 `pendingBelowPrice`        |DECIMAL|NO        |当 `pendingBelowType` 是 `STOP_LOSS_LIMIT` 或 `TAKE_PROFIT_LIMIT` 时，可用以指定限价。
 `pendingBelowStopPrice`    |DECIMAL|NO        |如果 `pendingBelowType` 是 `STOP_LOSS`, `STOP_LOSS_LIMIT`, `TAKE_PROFIT`, `TAKE_PROFIT_LIMIT` 才能使用。<br> 必须指定 `pendingBelowStopPrice` 或 `pendingBelowTrailingDelta` 或两者。
 `pendingBelowTrailingDelta`|DECIMAL|NO        |
 `pendingBelowIcebergQty`   |DECIMAL|NO        |只有当 `pendingBelowTimeInForce` 为 `GTC` 时才能使用。
-`pendingBelowTimeInForce`  |ENUM   |NO        |支持的数值： [生效时间](#timeinforce)
+`pendingBelowTimeInForce`  |ENUM   |NO        |支持的数值： [生效时间](./enums_CN.md#timeinforce)
 `pendingBelowStrategyId`   |LONG    |NO        |订单策略中用于标识待处理下方订单的 ID。
 `pendingBelowStrategyType` |INT    |NO        |用于标识待处理下方订单策略的任意数值。 <br> 小于 `1000000` 的值被保留，无法使用。
-`recvWindow`               |LONG   |NO        |不能大于 `60000`。
+`pendingBelowPegPriceType` |ENUM   |NO        |参阅 [挂钩订单](#pegged-orders-info)
+`pendingBelowPegOffsetType`|ENUM   |NO        |
+`pendingBelowPegOffsetValue` |INT  |NO        |
+`recvWindow`               |DECIMAL|NO        |最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `timestamp`                |LONG   |YES       |
 `signature`                |STRING|YES|
 
@@ -5347,247 +5703,439 @@ NONE
 
 ```javascript
 {
-  "id": "1712544408508",
-  "status": 200,
-  "result": {
-    "orderListId": 629,
-    "contingencyType": "OTO",
-    "listStatusType": "EXEC_STARTED",
-    "listOrderStatus": "EXECUTING",
-    "listClientOrderId": "GaeJHjZPasPItFj4x7Mqm6",
-    "transactionTime": 1712544408537,
-    "symbol": "1712544378871",
-    "orders": [
-      {
-        "symbol": "1712544378871",
-        "orderId": 23,
-        "clientOrderId": "OVQOpKwfmPCfaBTD0n7e7H"
-      },
-      {
-        "symbol": "1712544378871",
-        "orderId": 24,
-        "clientOrderId": "YcCPKCDMQIjNvLtNswt82X"
-      },
-      {
-        "symbol": "1712544378871",
-        "orderId": 25,
-        "clientOrderId": "ilpIoShcFZ1ZGgSASKxMPt"
-      }
-    ],
-    "orderReports": [
-      {
-        "symbol": "LTCBNB",
-        "orderId": 23,
+    "id": "1712544408508",
+    "status": 200,
+    "result": {
         "orderListId": 629,
-        "clientOrderId": "OVQOpKwfmPCfaBTD0n7e7H",
-        "transactTime": 1712544408537,
-        "price": "1.500000",
-        "origQty": "1.000000",
-        "executedQty": "0.000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.000000",
-        "status": "NEW",
-        "timeInForce": "GTC",
-        "type": "LIMIT",
-        "side": "BUY",
-        "workingTime": 1712544408537,
-        "selfTradePreventionMode": "NONE"
-      },
-      {
-        "symbol": "LTCBNB",
-        "orderId": 24,
-        "orderListId": 629,
-        "clientOrderId": "YcCPKCDMQIjNvLtNswt82X",
-        "transactTime": 1712544408537,
-        "price": "0.000000",
-        "origQty": "5.000000",
-        "executedQty": "0.000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.000000",
-        "status": "PENDING_NEW",
-        "timeInForce": "GTC",
-        "type": "STOP_LOSS",
-        "side": "SELL",
-        "stopPrice": "0.500000",
-        "workingTime": -1,
-        "selfTradePreventionMode": "NONE"
-      },
-      {
-        "symbol": "LTCBNB",
-        "orderId": 25,
-        "orderListId": 629,
-        "clientOrderId": "ilpIoShcFZ1ZGgSASKxMPt",
-        "transactTime": 1712544408537,
-        "price": "5.000000",
-        "origQty": "5.000000",
-        "executedQty": "0.000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.000000",
-        "status": "PENDING_NEW",
-        "timeInForce": "GTC",
-        "type": "LIMIT_MAKER",
-        "side": "SELL",
-        "workingTime": -1,
-        "selfTradePreventionMode": "NONE"
-      }
-    ]
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 10000000,
-      "count": 18
+        "contingencyType": "OTO",
+        "listStatusType": "EXEC_STARTED",
+        "listOrderStatus": "EXECUTING",
+        "listClientOrderId": "GaeJHjZPasPItFj4x7Mqm6",
+        "transactionTime": 1712544408537,
+        "symbol": "1712544378871",
+        "orders": [
+            {
+                "symbol": "LTCBNB",
+                "orderId": 23,
+                "clientOrderId": "OVQOpKwfmPCfaBTD0n7e7H"
+            },
+            {
+                "symbol": "LTCBNB",
+                "orderId": 24,
+                "clientOrderId": "YcCPKCDMQIjNvLtNswt82X"
+            },
+            {
+                "symbol": "LTCBNB",
+                "orderId": 25,
+                "clientOrderId": "ilpIoShcFZ1ZGgSASKxMPt"
+            }
+        ],
+        "orderReports": [
+            {
+                "symbol": "LTCBNB",
+                "orderId": 23,
+                "orderListId": 629,
+                "clientOrderId": "OVQOpKwfmPCfaBTD0n7e7H",
+                "transactTime": 1712544408537,
+                "price": "1.500000",
+                "origQty": "1.000000",
+                "executedQty": "0.000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.000000",
+                "status": "NEW",
+                "timeInForce": "GTC",
+                "type": "LIMIT",
+                "side": "BUY",
+                "workingTime": 1712544408537,
+                "selfTradePreventionMode": "NONE"
+            },
+            {
+                "symbol": "LTCBNB",
+                "orderId": 24,
+                "orderListId": 629,
+                "clientOrderId": "YcCPKCDMQIjNvLtNswt82X",
+                "transactTime": 1712544408537,
+                "price": "0.000000",
+                "origQty": "5.000000",
+                "executedQty": "0.000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.000000",
+                "status": "PENDING_NEW",
+                "timeInForce": "GTC",
+                "type": "STOP_LOSS",
+                "side": "SELL",
+                "stopPrice": "0.500000",
+                "workingTime": -1,
+                "selfTradePreventionMode": "NONE"
+            },
+            {
+                "symbol": "LTCBNB",
+                "orderId": 25,
+                "orderListId": 629,
+                "clientOrderId": "ilpIoShcFZ1ZGgSASKxMPt",
+                "transactTime": 1712544408537,
+                "price": "5.000000",
+                "origQty": "5.000000",
+                "executedQty": "0.000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.000000",
+                "status": "PENDING_NEW",
+                "timeInForce": "GTC",
+                "type": "LIMIT_MAKER",
+                "side": "SELL",
+                "workingTime": -1,
+                "selfTradePreventionMode": "NONE"
+            }
+        ]
     },
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 1000,
-      "count": 65
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 10000000,
+            "count": 18
+        },
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 1000,
+            "count": 65
+        }
+    ]
 }
 ```
 
 **注意:** 上面的 payload 没有显示所有可以出现的字段，更多请看 [订单响应中的特定条件时才会出现的字段](#conditional-fields-in-order-responses) 部分。
 
-<a id="orderList-status"></a>
+#### 新订单列表 - OPO（TRADE）
 
-#### 查询订单列表 (USER_DATA)
-
-```javascript
+```json
 {
-  "id": "b53fd5ff-82c7-4a04-bd64-5f9dc42c2100",
-  "method": "orderList.status",
-  "params": {
-    "origClientOrderId": "08985fedd9ea2cf6b28996"
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "d12f4e8892d46c0ddfbd43d556ff6d818581b3be22a02810c2c20cb719aed6a4",
-    "timestamp": 1660801713965
-  }
-}
-```
-
-检查订单列表的执行状态。
-
-对于单个订单的执行状态，使用 [`order.status`](#order-status)。
-
-**权重:**
-4
-
-**Parameters**:
-
-<table>
-<thead>
-    <tr>
-        <th>名称</th>
-        <th>类型</th>
-        <th>是否必需</th>
-        <th>描述</th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td><code>origClientOrderId</code></td>
-        <td>STRING</td>
-        <td rowspan="2">YES</td>
-        <td>通过 <code>listClientOrderId</code> 获取订单列表 </td>
-    </tr>
-    <tr>
-        <td><code>orderListId</code></td>
-        <td>INT</td>
-        <td>通过 <code>orderListId</code> 获取订单列表</td>
-    </tr>
-    <tr>
-        <td><code>apiKey</code></td>
-        <td>STRING</td>
-        <td>YES</td>
-        <td></td>
-    </tr>
-    <tr>
-        <td><code>recvWindow</code></td>
-        <td>INT</td>
-        <td>NO</td>
-        <td>值不能大于 <tt>60000</tt></td>
-    </tr>
-    <tr>
-        <td><code>signature</code></td>
-        <td>STRING</td>
-        <td>YES</td>
-        <td></td>
-    </tr>
-    <tr>
-        <td><code>timestamp</code></td>
-        <td>INT</td>
-        <td>YES</td>
-        <td></td>
-    </tr>
-</tbody>
-</table>
-
-备注：
-
-* `origClientOrderId` 指的是订单列表本身的 `listClientOrderId`。
-
-* 如果同时指定了 `origClientOrderId` 和 `orderListId` 参数，仅使用 `origClientOrderId` 并忽略 `orderListId`。
-
-**数据源:**
-数据库
-
-**响应:**
-
-```javascript
-{
-  "id": "b53fd5ff-82c7-4a04-bd64-5f9dc42c2100",
-  "status": 200,
-  "result": {
-    "orderListId": 1274512,
-    "contingencyType": "OCO",
-    "listStatusType": "EXEC_STARTED",
-    "listOrderStatus": "EXECUTING",
-    "listClientOrderId": "08985fedd9ea2cf6b28996",
-    "transactionTime": 1660801713793,
-    "symbol": "BTCUSDT",
-    "orders": [
-      {
+    "id": "1762941318128",
+    "method": "orderList.place.opo",
+    "params": {
+        "workingPrice": "101496",
+        "workingQuantity": "0.0007",
+        "workingType": "LIMIT",
+        "workingTimeInForce": "GTC",
+        "pendingType": "MARKET",
+        "pendingSide": "SELL",
+        "recvWindow": 5000,
+        "workingSide": "BUY",
         "symbol": "BTCUSDT",
-        "orderId": 12569138901,
-        "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU"
-      },
-      {
-        "symbol": "BTCUSDT",
-        "orderId": 12569138902,
-        "clientOrderId": "jLnZpj5enfMXTuhKB1d0us"
-      }
-    ]
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 4
+        "timestamp": 1762941318129,
+        "apiKey": "aHb4Ur1cK1biW3sgibqUFs39SE58f9d5Xwf4uEW0tFh7ibun5g035QKSktxoOBfE",
+        "signature": "b50ce8977333a78a3bbad21df178d7e104a8c985d19007b55df688cdf868639a"
     }
-  ]
 }
 ```
+
+发送一个 [OPO](./faqs/opo_CN.md) 订单。
+
+* OPO 会向 `EXCHANGE_MAX_NUM_ORDERS` 过滤器和 `MAX_NUM_ORDERS` 过滤器中添加 2 个订单。
+
+**权重:** 1
+
+**未成交订单数量:** 2
+
+**参数:**
+
+| 名称 | 类型 | 必填 | 描述 |
+| ----- | ----- | ----- | ----- |
+| `symbol` | STRING | YES | 交易对符号 |
+| `listClientOrderId` | STRING | NO | 订单列表中的任意唯一 ID。如果未发送，则自动生成。只有当之前的同一 `listClientOrderId` 的订单列表已成交或完全过期时，才接受新的同一 `listClientOrderId` 的订单列表。`listClientOrderId` 与 `workingClientOrderId` 和 `pendingClientOrderId` 不同。 |
+| `newOrderRespType` | ENUM | NO | JSON 响应格式。支持的数值：[订单返回类型](./enums_CN.md#orderresponsetype) |
+| `selfTradePreventionMode` | ENUM | NO | 允许的值取决于交易对的配置。支持的值见：[STP模式](./enums_CN.md#stpmodes) |
+| `workingType` | ENUM | YES | 支持的数值：`LIMIT`，`LIMIT_MAKER` |
+| `workingSide` | ENUM | YES | 支持的数值：[订单方向](./enums_CN.md#side) |
+| `workingClientOrderId` | STRING | NO | 生效订单中挂单的任意唯一 ID。如果未发送，则自动生成。 |
+| `workingPrice` | DECIMAL | YES | 生效订单价格 |
+| `workingQuantity` | DECIMAL | YES | 设置生效订单的数量 |
+| `workingIcebergQty` | DECIMAL | NO | 仅当 `workingTimeInForce` 为 `GTC` 或 `workingType` 为 `LIMIT_MAKER` 时可用 |
+| `workingTimeInForce` | ENUM | NO | 支持的数值：[生效时间](./enums_CN.md#timeinforce) |
+| `workingStrategyId` | LONG | NO | 用于标识订单策略中生效订单的任意数字值 |
+| `workingStrategyType` | INT | NO | 用于标识生效订单策略的任意数字值。小于 1000000 为保留值，不能使用。 |
+| `workingPegPriceType` | ENUM | NO | 详见 [挂钩订单](#pegged-orders-info) |
+| `workingPegOffsetType` | ENUM | NO |  |
+| `workingPegOffsetValue` | INT | NO |  |
+| `pendingType` | ENUM | YES | 支持的数值：[订单类型](#order-type)。注意，不支持使用 `quoteOrderQty` 的 `MARKET` 订单。 |
+| `pendingSide` | ENUM | YES | 支持的数值：[订单方向](./enums_CN.md#side) |
+| `pendingClientOrderId` | STRING | NO | 待执行订单中挂单的任意唯一 ID。如果未发送，则自动生成。 |
+| `pendingPrice` | DECIMAL | NO | 待执行订单价格 |
+| `pendingStopPrice` | DECIMAL | NO | 待执行订单止损价格 |
+| `pendingTrailingDelta` | DECIMAL | NO | 待执行订单跟踪止损差值 |
+| `pendingIcebergQty` | DECIMAL | NO | 仅当 `pendingTimeInForce` 为 `GTC` 或 `pendingType` 为 `LIMIT_MAKER` 时可用 |
+| `pendingTimeInForce` | ENUM | NO | 支持的数值：[生效时间](./enums_CN.md#timeinforce) |
+| `pendingStrategyId` | LONG | NO | 用于标识订单策略中待执行订单的任意数字值 |
+| `pendingStrategyType` | INT | NO | 用于标识待执行订单策略的任意数字值。小于 1000000 为保留值，不能使用。 |
+| `pendingPegPriceType` | ENUM | NO | 详见 [挂钩订单](#pegged-orders-info) |
+| `pendingPegOffsetType` | ENUM | NO |  |
+| `pendingPegOffsetValue` | INT | NO |  |
+| `recvWindow` | DECIMAL | NO | 该值不能大于 `60000`。支持最多三位小数精度（例如 6000.346），以便指定微秒。 |
+| `timestamp` | LONG | YES | 时间戳 |
+
+**数据来源**：撮合引擎
+
+**响应示例:**
+
+```json
+{
+    "id": "1762941318128",
+    "status": 200,
+    "result": {
+        "orderListId": 2,
+        "contingencyType": "OTO",
+        "listStatusType": "EXEC_STARTED",
+        "listOrderStatus": "EXECUTING",
+        "listClientOrderId": "OiOgqvRagBefpzdM5gjYX3",
+        "transactionTime": 1762941318142,
+        "symbol": "BTCUSDT",
+        "orders": [
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 2,
+                "clientOrderId": "pUzhKBbc0ZVdMScIRAqitH"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 3,
+                "clientOrderId": "x7ISSjywZxFXOdzwsThNnd"
+            }
+        ],
+        "orderReports": [
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 2,
+                "orderListId": 2,
+                "clientOrderId": "pUzhKBbc0ZVdMScIRAqitH",
+                "transactTime": 1762941318142,
+                "price": "101496.00000000",
+                "origQty": "0.00070000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.00000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "NEW",
+                "timeInForce": "GTC",
+                "type": "LIMIT",
+                "side": "BUY",
+                "workingTime": 1762941318142,
+                "selfTradePreventionMode": "NONE"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 3,
+                "orderListId": 2,
+                "clientOrderId": "x7ISSjywZxFXOdzwsThNnd",
+                "transactTime": 1762941318142,
+                "price": "0.00000000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.00000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "PENDING_NEW",
+                "timeInForce": "GTC",
+                "type": "MARKET",
+                "side": "SELL",
+                "workingTime": -1,
+                "selfTradePreventionMode": "NONE"
+            }
+        ]
+    }
+}
+```
+
+**注意:** 上面的 payload 没有显示所有可以出现的字段，更多请看 [订单响应中的特定条件时才会出现的字段](#conditional-fields-in-order-responses) 部分。
+
+#### 新订单列表 - OPOCO（TRADE）
+
+```json
+{
+    "id": "1763000139090",
+    "method": "orderList.place.opoco",
+    "params": {
+        "workingPrice": "102496",
+        "workingQuantity": "0.0017",
+        "workingType": "LIMIT",
+        "workingTimeInForce": "GTC",
+        "pendingAboveType": "LIMIT_MAKER",
+        "pendingAbovePrice": "104261",
+        "pendingBelowStopPrice": "10100",
+        "pendingBelowPrice": "101613",
+        "pendingBelowType": "STOP_LOSS_LIMIT",
+        "pendingBelowTimeInForce": "IOC",
+        "pendingSide": "SELL",
+        "recvWindow": 5000,
+        "workingSide": "BUY",
+        "symbol": "BTCUSDT",
+        "timestamp": 1763000139091,
+        "apiKey": "2wiKgTLyllTCu0QWXaEtKWX9tUQ5iQMiDQqTQPdUe2bZ1IVT9aXoS6o19wkYIKl2",
+        "signature": "adfa185c50f793392a54ad5a6e2c39fd34ef6d35944adf2ddd6f30e1866e58d3"
+    }
+}
+```
+
+发送一个 [OPOCO](./faqs/opo_CN.md) 订单。
+
+**权重**: 1
+
+**未成交订单数量:** 3
+
+**参数:**
+
+| 名称 | 类型 | 必填 | 描述 |
+| ----- | ----- | ----- | ----- |
+| `symbol` | STRING | YES | 交易对符号 |
+| `listClientOrderId` | STRING | NO | 订单列表中的任意唯一 ID。如果未发送，则自动生成。只有当之前的同一 `listClientOrderId` 的订单列表已成交或完全过期时，才接受新的同一 `listClientOrderId` 的订单列表。`listClientOrderId` 与 `workingClientOrderId`、`pendingAboveClientOrderId` 和 `pendingBelowClientOrderId` 不同。 |
+| `newOrderRespType` | ENUM | NO | JSON 响应格式。支持的数值：[订单返回类型](./enums_CN.md#orderresponsetype) |
+| `selfTradePreventionMode` | ENUM | NO | 允许的值取决于交易对的配置。支持的数值：[STP模式](./enums_CN.md#stpmodes) |
+| `workingType` | ENUM | YES | 支持的值：`LIMIT`，`LIMIT_MAKER` |
+| `workingSide` | ENUM | YES | 支持的值见：[订单方向](./enums_CN.md#side) |
+| `workingClientOrderId` | STRING | NO | 生效订单中挂单的任意唯一 ID。如果未发送，则自动生成。 |
+| `workingPrice` | DECIMAL | YES | 生效订单价格 |
+| `workingQuantity` | DECIMAL | YES | 生效订单数量 |
+| `workingIcebergQty` | DECIMAL | NO | 仅当 `workingTimeInForce` 为 `GTC` 或 `workingType` 为 `LIMIT_MAKER` 时可用 |
+| `workingTimeInForce` | ENUM | NO | 支持的数值：[生效时间](./enums_CN.md#timeinforce) |
+| `workingStrategyId` | LONG | NO | 用于标识订单策略中生效订单的任意数字值 |
+| `workingStrategyType` | INT | NO | 用于标识生效订单策略的任意数字值。小于 1000000 为保留值，不能使用。 |
+| `workingPegPriceType` | ENUM | NO | 详见 [挂钩订单](#pegged-orders-info) |
+| `workingPegOffsetType` | ENUM | NO |  |
+| `workingPegOffsetValue` | INT | NO |  |
+| `pendingSide` | ENUM | YES | 支持的值见：[订单方向](./enums_CN.md#side) |
+| `pendingAboveType` | ENUM | YES | 支持的值：`STOP_LOSS_LIMIT`，`STOP_LOSS`，`LIMIT_MAKER`，`TAKE_PROFIT`，`TAKE_PROFIT_LIMIT` |
+| `pendingAboveClientOrderId` | STRING | NO | 待执行上方订单中开放订单的任意唯一 ID。如果未发送，则自动生成。 |
+| `pendingAbovePrice` | DECIMAL | NO | 当 `pendingAboveType` 为 `STOP_LOSS_LIMIT`、`LIMIT_MAKER` 或 `TAKE_PROFIT_LIMIT` 时，可用于指定限价。 |
+| `pendingAboveStopPrice` | DECIMAL | NO | 当 `pendingAboveType` 为 `STOP_LOSS`、`STOP_LOSS_LIMIT`、`TAKE_PROFIT`、`TAKE_PROFIT_LIMIT` 时可用。 |
+| `pendingAboveTrailingDelta` | DECIMAL | NO | 详见 [追踪止盈止损订单常见问题](../faqs/trailing-stop-faq_CN.md) |
+| `pendingAboveIcebergQty` | DECIMAL | NO | 仅当 `pendingAboveTimeInForce` 为 `GTC` 或 `pendingAboveType` 为 `LIMIT_MAKER` 时可用。 |
+| `pendingAboveTimeInForce` | ENUM | NO |  |
+| `pendingAboveStrategyId` | LONG | NO | 用于标识订单策略中待执行上方订单的任意数值。 |
+| `pendingAboveStrategyType` | INT | NO | 用于标识待执行上方订单策略的任意数字值。小于 1000000 的值为保留，不能使用。 |
+| `pendingAbovePegPriceType` | ENUM | NO | 详见 [挂钩订单](#pegged-orders-info) |
+| `pendingAbovePegOffsetType` | ENUM | NO |  |
+| `pendingAbovePegOffsetValue` | INT | NO |  |
+| `pendingBelowType` | ENUM | NO | 支持的值：`STOP_LOSS`，`STOP_LOSS_LIMIT`，`TAKE_PROFIT`，`TAKE_PROFIT_LIMIT` |
+| `pendingBelowClientOrderId` | STRING | NO | 待执行下方订单中开放订单的任意唯一 ID。如果未发送，则自动生成。 |
+| `pendingBelowPrice` | DECIMAL | NO | 当 `pendingBelowType` 为 `STOP_LOSS_LIMIT` 或 `TAKE_PROFIT_LIMIT` 时，可用于指定限价。 |
+| `pendingBelowStopPrice` | DECIMAL | NO | 当 `pendingBelowType` 为 `STOP_LOSS`、`STOP_LOSS_LIMIT`、`TAKE_PROFIT` 或 `TAKE_PROFIT_LIMIT` 时可用。`pendingBelowStopPrice`、`pendingBelowTrailingDelta` 或两者之一必须被指定。 |
+| `pendingBelowTrailingDelta` | DECIMAL | NO |  |
+| `pendingBelowIcebergQty` | DECIMAL | NO | 仅当 `pendingBelowTimeInForce` 为 `GTC` 或 `pendingBelowType` 为 `LIMIT_MAKER` 时可用。 |
+| `pendingBelowTimeInForce` | ENUM | NO | 支持的值见：[生效时间](./enums_CN.md#timeinforce) |
+| `pendingBelowStrategyId` | LONG | NO | 用于标识订单策略中待执行下方订单的任意数值。 |
+| `pendingBelowStrategyType` | INT | NO | 用于标识待执行下方订单策略的任意数值。小于 1000000 为保留值，不能使用。 |
+| `pendingBelowPegPriceType` | ENUM | NO | 详见 [挂钩订单](#pegged-orders-info) |
+| `pendingBelowPegOffsetType` | ENUM | NO |  |
+| `pendingBelowPegOffsetValue` | INT | NO |  |
+| `recvWindow` | DECIMAL | NO | 该值不能大于 `60000`。支持最多三位小数精度（例如 6000.346），以便指定微秒。 |
+| `timestamp` | LONG | YES | 时间戳 |
+
+**数据来源**：撮合引擎
+
+**响应示例:**
+
+```json
+{
+    "id": "1763000139090",
+    "status": 200,
+    "result": {
+        "orderListId": 1,
+        "contingencyType": "OTO",
+        "listStatusType": "EXEC_STARTED",
+        "listOrderStatus": "EXECUTING",
+        "listClientOrderId": "TVbG6ymkYMXTj7tczbOsBf",
+        "transactionTime": 1763000139104,
+        "symbol": "BTCUSDT",
+        "orders": [
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 6,
+                "clientOrderId": "3czuJSeyjPwV9Xo28j1Dv3"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 7,
+                "clientOrderId": "kyIKnMLKQclE5FmyYgaMSo"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 8,
+                "clientOrderId": "i76cGJWN9J1FpADS56TtQZ"
+            }
+        ],
+        "orderReports": [
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 6,
+                "orderListId": 1,
+                "clientOrderId": "3czuJSeyjPwV9Xo28j1Dv3",
+                "transactTime": 1763000139104,
+                "price": "102496.00000000",
+                "origQty": "0.00170000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.00000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "NEW",
+                "timeInForce": "GTC",
+                "type": "LIMIT",
+                "side": "BUY",
+                "workingTime": 1763000139104,
+                "selfTradePreventionMode": "NONE"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 7,
+                "orderListId": 1,
+                "clientOrderId": "kyIKnMLKQclE5FmyYgaMSo",
+                "transactTime": 1763000139104,
+                "price": "101613.00000000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.00000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "PENDING_NEW",
+                "timeInForce": "IOC",
+                "type": "STOP_LOSS_LIMIT",
+                "side": "SELL",
+                "stopPrice": "10100.00000000",
+                "workingTime": -1,
+                "selfTradePreventionMode": "NONE"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 8,
+                "orderListId": 1,
+                "clientOrderId": "i76cGJWN9J1FpADS56TtQZ",
+                "transactTime": 1763000139104,
+                "price": "104261.00000000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.00000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "PENDING_NEW",
+                "timeInForce": "GTC",
+                "type": "LIMIT_MAKER",
+                "side": "SELL",
+                "workingTime": -1,
+                "selfTradePreventionMode": "NONE"
+            }
+        ]
+    }
+}
+```
+
+**注意:** 上面的 payload 没有显示所有可以出现的字段，更多请看 [订单响应中的特定条件时才会出现的字段](#conditional-fields-in-order-responses) 部分。
 
 #### 撤销订单列表订单(TRADE)
 
 ```javascript
 {
-  "id": "c5899911-d3f4-47ae-8835-97da553d27d0",
-  "method": "orderList.cancel",
-  "params": {
-    "symbol": "BTCUSDT",
-    "orderListId": 1274512,
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "4973f4b2fee30bf6d45e4a973e941cc60fdd53c8dd5a25edeac96f5733c0ccee",
-    "timestamp": 1660801720210
-  }
+    "id": "c5899911-d3f4-47ae-8835-97da553d27d0",
+    "method": "orderList.cancel",
+    "params": {
+        "symbol": "BTCUSDT",
+        "orderListId": 1274512,
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "4973f4b2fee30bf6d45e4a973e941cc60fdd53c8dd5a25edeac96f5733c0ccee",
+        "timestamp": 1660801720210
+    }
 }
 ```
 
@@ -5639,9 +6187,9 @@ NONE
     </tr>
     <tr>
         <td><code>recvWindow</code></td>
-        <td>INT</td>
+        <td>DECIMAL</td>
         <td>NO</td>
-        <td>值不能大于 <tt>60000</tt></td>
+        <td>值不能大于 <tt>60000</tt>。<br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。</td>
     </tr>
     <tr>
         <td><code>signature</code></td>
@@ -5651,7 +6199,7 @@ NONE
     </tr>
     <tr>
         <td><code>timestamp</code></td>
-        <td>INT</td>
+        <td>LONG</td>
         <td>YES</td>
         <td></td>
     </tr>
@@ -5660,7 +6208,7 @@ NONE
 
 备注：
 
-* 如果同时指定了 `orderListId` 和 `listClientOrderId` 参数，仅使用 `orderListId` 并忽略 `listClientOrderId`。
+* 如果同时指定了 `orderListId` 和 `listClientOrderId` 参数，首先将会用`orderListId` 进行搜索，然后将检索结果中的 `listClientOrderId` 与订单进行比对。如果两个条件都不满足，则请求将被拒绝。
 
 * 使用 [`order.cancel`](#order-cancel) 撤销订单列表内的某个订单，则整个订单列表将被撤销。
 
@@ -5671,152 +6219,75 @@ NONE
 
 ```javascript
 {
-  "id": "c5899911-d3f4-47ae-8835-97da553d27d0",
-  "status": 200,
-  "result": {
-    "orderListId": 1274512,
-    "contingencyType": "OCO",
-    "listStatusType": "ALL_DONE",
-    "listOrderStatus": "ALL_DONE",
-    "listClientOrderId": "6023531d7edaad348f5aff",
-    "transactionTime": 1660801720215,
-    "symbol": "BTCUSDT",
-    "orders": [
-      {
-        "symbol": "BTCUSDT",
-        "orderId": 12569138901,
-        "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU"
-      },
-      {
-        "symbol": "BTCUSDT",
-        "orderId": 12569138902,
-        "clientOrderId": "jLnZpj5enfMXTuhKB1d0us"
-      }
-    ],
-    "orderReports": [
-      {
-        "symbol": "BTCUSDT",
-        "orderId": 12569138901,
+    "id": "c5899911-d3f4-47ae-8835-97da553d27d0",
+    "status": 200,
+    "result": {
         "orderListId": 1274512,
-        "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU",
-        "transactTime": 1660801720215,
-        "price": "23410.00000000",
-        "origQty": "0.00650000",
-        "executedQty": "0.00000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.00000000",
-        "status": "CANCELED",
-        "timeInForce": "GTC",
-        "type": "STOP_LOSS_LIMIT",
-        "side": "SELL",
-        "stopPrice": "23405.00000000",
-        "selfTradePreventionMode": "NONE"
-      },
-      {
+        "contingencyType": "OCO",
+        "listStatusType": "ALL_DONE",
+        "listOrderStatus": "ALL_DONE",
+        "listClientOrderId": "6023531d7edaad348f5aff",
+        "transactionTime": 1660801720215,
         "symbol": "BTCUSDT",
-        "orderId": 12569138902,
-        "orderListId": 1274512,
-        "clientOrderId": "jLnZpj5enfMXTuhKB1d0us",
-        "transactTime": 1660801720215,
-        "price": "23420.00000000",
-        "origQty": "0.00650000",
-        "executedQty": "0.00000000",
-        "origQuoteOrderQty": "0.000000",
-        "cummulativeQuoteQty": "0.00000000",
-        "status": "CANCELED",
-        "timeInForce": "GTC",
-        "type": "LIMIT_MAKER",
-        "side": "SELL",
-        "selfTradePreventionMode": "NONE"
-      }
-    ]
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
-}
-```
-
-#### 查询订单列表挂单 (USER_DATA)
-
-```javascript
-{
-  "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
-  "method": "openOrderLists.status",
-  "params": {
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "1bea8b157dd78c3da30359bddcd999e4049749fe50b828e620e12f64e8b433c9",
-    "timestamp": 1660801713831
-  }
-}
-```
-
-查询所有订单列表挂单的执行状态。
-
-如果您需要持续监控订单状态更新，请考虑使用 WebSocket Streams：
-
-* [`userDataStream.start`](#user-data-stream-requests) 请求
-* [`executionReport`](./user-data-stream_CN.md#executionReport) 更新
-
-**权重:**
-6
-
-**参数:**
-
-名称                | 类型    | 是否必需 | 描述
-------------------- | ------- | --------- | ------------
-`apiKey`            | STRING  | YES       |
-`recvWindow`        | INT     | NO        | 值不能大于 `60000`
-`signature`         | STRING  | YES       |
-`timestamp`         | INT     | YES       |
-
-**数据源:**
-数据库
-
-**响应:**
-
-```javascript
-{
-  "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
-  "status": 200,
-  "result": [
-    {
-      "orderListId": 0,
-      "contingencyType": "OCO",
-      "listStatusType": "EXEC_STARTED",
-      "listOrderStatus": "EXECUTING",
-      "listClientOrderId": "08985fedd9ea2cf6b28996",
-      "transactionTime": 1660801713793,
-      "symbol": "BTCUSDT",
-      "orders": [
+        "orders": [
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569138901,
+                "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569138902,
+                "clientOrderId": "jLnZpj5enfMXTuhKB1d0us"
+            }
+        ],
+        "orderReports": [
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569138901,
+                "orderListId": 1274512,
+                "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU",
+                "transactTime": 1660801720215,
+                "price": "23410.00000000",
+                "origQty": "0.00650000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "CANCELED",
+                "timeInForce": "GTC",
+                "type": "STOP_LOSS_LIMIT",
+                "side": "SELL",
+                "stopPrice": "23405.00000000",
+                "selfTradePreventionMode": "NONE"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569138902,
+                "orderListId": 1274512,
+                "clientOrderId": "jLnZpj5enfMXTuhKB1d0us",
+                "transactTime": 1660801720215,
+                "price": "23420.00000000",
+                "origQty": "0.00650000",
+                "executedQty": "0.00000000",
+                "origQuoteOrderQty": "0.000000",
+                "cummulativeQuoteQty": "0.00000000",
+                "status": "CANCELED",
+                "timeInForce": "GTC",
+                "type": "LIMIT_MAKER",
+                "side": "SELL",
+                "selfTradePreventionMode": "NONE"
+            }
+        ]
+    },
+    "rateLimits": [
         {
-          "symbol": "BTCUSDT",
-          "orderId": 4,
-          "clientOrderId": "CUhLgTXnX5n2c0gWiLpV4d"
-        },
-        {
-          "symbol": "BTCUSDT",
-          "orderId": 5,
-          "clientOrderId": "1ZqG7bBuYwaF4SU8CwnwHm"
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
         }
-      ]
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 6
-    }
-  ]
+    ]
 }
 ```
 
@@ -5826,26 +6297,32 @@ NONE
 
 ```javascript
 {
-  "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
-  "method": "sor.order.place",
-  "params":
-  {
-    "symbol": "BTCUSDT",
-    "side": "BUY",
-    "type": "LIMIT",
-    "quantity": 0.5,
-    "timeInForce": "GTC",
-    "price": 31000,
-    "timestamp": 1687485436575,
-    "apiKey": "u5lgqJb97QWXWfgeV4cROuHbReSJM9rgQL0IvYcYc7BVeA5lpAqqc3a5p2OARIFk",
-    "signature": "fd301899567bc9472ce023392160cdc265ad8fcbbb67e0ea1b2af70a4b0cd9c7"
-  }
+    "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
+    "method": "sor.order.place",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "BUY",
+        "type": "LIMIT",
+        "quantity": 0.5,
+        "timeInForce": "GTC",
+        "price": 31000,
+        "timestamp": 1687485436575,
+        "apiKey": "u5lgqJb97QWXWfgeV4cROuHbReSJM9rgQL0IvYcYc7BVeA5lpAqqc3a5p2OARIFk",
+        "signature": "fd301899567bc9472ce023392160cdc265ad8fcbbb67e0ea1b2af70a4b0cd9c7"
+    }
 }
 ```
 
 下使用智能订单路由 (SOR) 的新订单。
 
+这个请求会把1个订单添加到 `EXCHANGE_MAX_ORDERS` 过滤器和 `MAX_NUM_ORDERS` 过滤器中。
+
+请参阅 [智能指令路由 (SOR)](../faqs/sor_faq_CN.md) 来了解更多详情。
+
 **权重:**
+1
+
+**未成交的订单计数:**
 1
 
 **参数:**
@@ -5861,12 +6338,12 @@ NONE
 `newClientOrderId`  | STRING  | NO        | 用户自定义的任意唯一值orderid，如空缺系统会自动赋值
 `newOrderRespType`  | ENUM    | NO        | <p>可选的响应格式: `ACK`，`RESULT`，`FULL` Select response format: `ACK`, `RESULT`, `FULL`.</p><p>`市场`和`限价`单默认使用`FULL` </p>
 `icebergQty`        | DECIMAL | NO        |
-`strategyId`        | LONG     | NO        | 用于标识订单策略中订单的任意数字值。
+`strategyId`        | LONG    | NO        | 用于标识订单策略中订单的任意数字值。
 `strategyType`      | INT     | NO        | <p>用于标识订单策略的任意数字值。</p><p>小于 `1000000` 是保留值，应此不能被使用。</p>
 `selfTradePreventionMode` |ENUM | NO      | 允许的 ENUM 取决于交易对的配置。支持的值有：[STP 模式](./enums_CN.md#stpmodes)
 `apiKey`            | STRING  | YES       |
-`timestamp`         | INT     | YES       |
-`recvWindow`        | INT     | NO        | 赋值不能大于 `60000`
+`timestamp`         | LONG    | YES       |
+`recvWindow`        | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `signature`         | STRING  | YES       |
 
 **注意:** `sor.order.place` 只支持 `限价` 和 `市场` 单， 并不支持 `quoteOrderQty`。
@@ -5878,50 +6355,50 @@ NONE
 
 ```javascript
 {
-  "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BTCUSDT",
-      "orderId": 2,
-      "orderListId": -1,
-      "clientOrderId": "sBI1KM6nNtOfj5tccZSKly",
-      "transactTime": 1689149087774,
-      "price": "31000.00000000",
-      "origQty": "0.50000000",
-      "executedQty": "0.50000000",
-      "origQuoteOrderQty": "0.000000",
-      "cummulativeQuoteQty": "14000.00000000",
-      "status": "FILLED",
-      "timeInForce": "GTC",
-      "type": "LIMIT",
-      "side": "BUY",
-      "workingTime": 1689149087774,
-      "fills": [
+    "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
+    "status": 200,
+    "result": [
         {
-          "matchType": "ONE_PARTY_TRADE_REPORT",
-          "price": "28000.00000000",
-          "qty": "0.50000000",
-          "commission": "0.00000000",
-          "commissionAsset": "BTC",
-          "tradeId": -1,
-          "allocId": 0
+            "symbol": "BTCUSDT",
+            "orderId": 2,
+            "orderListId": -1,
+            "clientOrderId": "sBI1KM6nNtOfj5tccZSKly",
+            "transactTime": 1689149087774,
+            "price": "31000.00000000",
+            "origQty": "0.50000000",
+            "executedQty": "0.50000000",
+            "origQuoteOrderQty": "0.000000",
+            "cummulativeQuoteQty": "14000.00000000",
+            "status": "FILLED",
+            "timeInForce": "GTC",
+            "type": "LIMIT",
+            "side": "BUY",
+            "workingTime": 1689149087774,
+            "fills": [
+                {
+                    "matchType": "ONE_PARTY_TRADE_REPORT",
+                    "price": "28000.00000000",
+                    "qty": "0.50000000",
+                    "commission": "0.00000000",
+                    "commissionAsset": "BTC",
+                    "tradeId": -1,
+                    "allocId": 0
+                }
+            ],
+            "workingFloor": "SOR",
+            "selfTradePreventionMode": "NONE",
+            "usedSor": true
         }
-      ],
-      "workingFloor": "SOR",
-      "selfTradePreventionMode": "NONE",
-      "usedSor": true
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -5929,20 +6406,19 @@ NONE
 
 ```javascript
 {
-  "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
-  "method": "sor.order.test",
-  "params":
-  {
-    "symbol": "BTCUSDT",
-    "side": "BUY",
-    "type": "LIMIT",
-    "quantity": 0.1,
-    "timeInForce": "GTC",
-    "price": 0.1,
-    "timestamp": 1687485436575,
-    "apiKey": "u5lgqJb97QWXWfgeV4cROuHbReSJM9rgQL0IvYcYc7BVeA5lpAqqc3a5p2OARIFk",
-    "signature": "fd301899567bc9472ce023392160cdc265ad8fcbbb67e0ea1b2af70a4b0cd9c7"
-  }
+    "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
+    "method": "sor.order.test",
+    "params": {
+        "symbol": "BTCUSDT",
+        "side": "BUY",
+        "type": "LIMIT",
+        "quantity": 0.1,
+        "timeInForce": "GTC",
+        "price": 0.1,
+        "timestamp": 1687485436575,
+        "apiKey": "u5lgqJb97QWXWfgeV4cROuHbReSJM9rgQL0IvYcYc7BVeA5lpAqqc3a5p2OARIFk",
+        "signature": "fd301899567bc9472ce023392160cdc265ad8fcbbb67e0ea1b2af70a4b0cd9c7"
+    }
 }
 ```
 
@@ -5962,7 +6438,7 @@ NONE
 
 参数名                   |类型          | 是否必需    | 描述
 ------------           | ------------ | ------------ | ------------
-`computeCommissionRates` | BOOLEAN      | NO           | 默认: `false`
+`computeCommissionRates` | BOOLEAN      | NO           | 默认值： `false`
 
 **数据源:**
 缓存
@@ -5973,18 +6449,18 @@ NONE
 
 ```javascript
 {
-  "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
-  "status": 200,
-  "result": {},
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 1
-    }
-  ]
+    "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
+    "status": 200,
+    "result": {},
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 1
+        }
+    ]
 }
 ```
 
@@ -5992,33 +6468,33 @@ NONE
 
 ```javascript
 {
-  "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
-  "status": 200,
-  "result": {
-    "standardCommissionForOrder": {                // 订单交易的标准佣金率。
-      "maker": "0.00000112",
-      "taker": "0.00000114"
+    "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
+    "status": 200,
+    "result": {
+        "standardCommissionForOrder": { // 订单交易的标准佣金率。
+            "maker": "0.00000112",
+            "taker": "0.00000114"
+        },
+        "taxCommissionForOrder": {      // 订单交易的税率。
+            "maker": "0.00000112",
+            "taker": "0.00000114"
+        },
+        "discount": {                   // 以BNB支付时的标准佣金折扣。
+            "enabledForAccount": true,
+            "enabledForSymbol": true,
+            "discountAsset": "BNB",
+            "discount": "0.25000000"     // 当用BNB支付佣金时，在标准佣金上按此比率打折。
+        }
     },
-    "taxCommissionForOrder": {                     // 订单交易的税率。
-      "maker": "0.00000112",
-      "taker": "0.00000114"
-    },
-    "discount": {                                  // 以BNB支付时的标准佣金折扣。
-      "enabledForAccount": true,
-      "enabledForSymbol": true,
-      "discountAsset": "BNB",
-      "discount": "0.25000000"                     // 当用BNB支付佣金时，在标准佣金上按此比率打折。
-    }
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 20
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 20
+        }
+    ]
 }
 ```
 
@@ -6028,13 +6504,13 @@ NONE
 
 ```javascript
 {
-  "id": "605a6d20-6588-4cb9-afa0-b0ab087507ba",
-  "method": "account.status",
-  "params": {
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "83303b4a136ac1371795f465808367242685a9e3a42b22edb4d977d0696eb45c",
-    "timestamp": 1660801839480
-  }
+    "id": "605a6d20-6588-4cb9-afa0-b0ab087507ba",
+    "method": "account.status",
+    "params": {
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "83303b4a136ac1371795f465808367242685a9e3a42b22edb4d977d0696eb45c",
+        "timestamp": 1660801839480
+    }
 }
 ```
 
@@ -6049,9 +6525,9 @@ NONE
 ------------------- | ------- | --------- | ------------
 `apiKey`            | STRING  | YES       |
 `omitZeroBalances`  | BOOLEAN | NO        | 如果`true`，将隐藏所有零余额。<br>默认值：`false`。
-`recvWindow`        | INT     | NO        | 值不能大于 `60000`
+`recvWindow`        | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `signature`         | STRING  | YES       |
-`timestamp`         | INT     | YES       |
+`timestamp`         | LONG    | YES       |
 
 **数据源:**
 缓存 => 数据库
@@ -6059,143 +6535,304 @@ NONE
 **响应:**
 ```javascript
 {
-  "id": "605a6d20-6588-4cb9-afa0-b0ab087507ba",
-  "status": 200,
-  "result": {
-    "makerCommission": 15,
-    "takerCommission": 15,
-    "buyerCommission": 0,
-    "sellerCommission": 0,
-    "canTrade": true,
-    "canWithdraw": true,
-    "canDeposit": true,
-    "commissionRates": {
-      "maker": "0.00150000",
-      "taker": "0.00150000",
-      "buyer": "0.00000000",
-      "seller": "0.00000000"
+    "id": "605a6d20-6588-4cb9-afa0-b0ab087507ba",
+    "status": 200,
+    "result": {
+        "makerCommission": 15,
+        "takerCommission": 15,
+        "buyerCommission": 0,
+        "sellerCommission": 0,
+        "canTrade": true,
+        "canWithdraw": true,
+        "canDeposit": true,
+        "commissionRates": {
+            "maker": "0.00150000",
+            "taker": "0.00150000",
+            "buyer": "0.00000000",
+            "seller": "0.00000000"
+        },
+        "brokered": false,
+        "requireSelfTradePrevention": false,
+        "preventSor": false,
+        "updateTime": 1660801833000,
+        "accountType": "SPOT",
+        "balances": [
+            {
+                "asset": "BNB",
+                "free": "0.00000000",
+                "locked": "0.00000000"
+            },
+            {
+                "asset": "BTC",
+                "free": "1.3447112",
+                "locked": "0.08600000"
+            },
+            {
+                "asset": "USDT",
+                "free": "1021.21000000",
+                "locked": "0.00000000"
+            }
+        ],
+        "permissions": ["SPOT"],
+        "uid": 354937868
     },
-    "brokered": false,
-    "requireSelfTradePrevention": false,
-    "preventSor": false,
-    "updateTime": 1660801833000,
-    "accountType": "SPOT",
-    "balances": [
-      {
-        "asset": "BNB",
-        "free": "0.00000000",
-        "locked": "0.00000000"
-      },
-      {
-        "asset": "BTC",
-        "free": "1.3447112",
-        "locked": "0.08600000"
-      },
-      {
-        "asset": "USDT",
-        "free": "1021.21000000",
-        "locked": "0.00000000"
-      }
-    ],
-    "permissions": [
-      "SPOT"
-    ],
-    "uid": 354937868
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 20
-    }
-  ]
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 20
+        }
+    ]
 }
 ```
 
-<a id="query-unfilled-order-count"></a>
+<a id="order-status"></a>
 
-### 查询未成交的订单计数 (USER_DATA)
+### 查询订单 (USER_DATA)
 
 ```javascript
 {
-  "id": "d3783d8d-f8d1-4d2c-b8a0-b7596af5a664",
-  "method": "account.rateLimits.orders",
-  "params": {
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "76289424d6e288f4dc47d167ac824e859dabf78736f4348abbbac848d719eb94",
-    "timestamp": 1660801839500
-  }
+    "id": "aa62318a-5a97-4f3b-bdc7-640bbe33b291",
+    "method": "order.status",
+    "params": {
+        "symbol": "BTCUSDT",
+        "orderId": 12569099453,
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "2c3aab5a078ee4ea465ecd95523b77289f61476c2f238ec10c55ea6cb11a6f35",
+        "timestamp": 1660801720951
+    }
 }
 ```
 
-显示用户在所有时间间隔内的未成交订单计数。
+查询订单状态。
 
 **权重:**
-40
+4
+
+**参数:**
+
+<table>
+<thead>
+    <tr>
+        <th>名称</th>
+        <th>类型</th>
+        <th>是否必需</th>
+        <th>描述</th>
+    </tr>
+</thead>
+<tbody>
+    <tr>
+        <td><code>symbol</code></td>
+        <td>STRING</td>
+        <td>YES</td>
+        <td></td>
+    </tr>
+    <tr>
+        <td><code>orderId</code></td>
+        <td>LONG</td>
+        <td rowspan="2">YES</td>
+        <td>按 <code>orderId</code> 查找顺序</td>
+    </tr>
+    <tr>
+        <td><code>origClientOrderId</code></td>
+        <td>STRING</td>
+        <td>按 <code>clientOrderId</code> 查找顺序</td>
+    </tr>
+    <tr>
+        <td><code>apiKey</code></td>
+        <td>STRING</td>
+        <td>YES</td>
+        <td></td>
+    </tr>
+    <tr>
+        <td><code>recvWindow</code></td>
+        <td>DECIMAL</td>
+        <td>NO</td>
+        <td>值不能大于 <tt>60000</tt>。<br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。</td>
+    </tr>
+    <tr>
+        <td><code>signature</code></td>
+        <td>STRING</td>
+        <td>YES</td>
+        <td></td>
+    </tr>
+    <tr>
+        <td><code>timestamp</code></td>
+        <td>LONG</td>
+        <td>YES</td>
+        <td></td>
+    </tr>
+</tbody>
+</table>
+
+备注：
+
+* 当同时提供 `orderId` 和 `origClientOrderId` 两个参数时，系统首先将会使用 `orderId` 来搜索订单。然后， 查找结果中的 `origClientOrderId` 的值将会被用来验证订单。如果两个条件都不满足，则请求将被拒绝。
+
+* 对于某些历史订单，`cummulativeQuoteQty` 响应字段可能为负数，意味着此时数据不可用。
+
+**数据源:**
+缓存 => 数据库
+
+**响应:**
+```javascript
+{
+    "id": "aa62318a-5a97-4f3b-bdc7-640bbe33b291",
+    "status": 200,
+    "result": {
+        "symbol": "BTCUSDT",
+        "orderId": 12569099453,
+        "orderListId": -1,                     // 如果是属于订单列表的订单时会出现
+        "clientOrderId": "4d96324ff9d44481926157",
+        "price": "23416.10000000",
+        "origQty": "0.00847000",
+        "executedQty": "0.00847000",
+        "origQuoteOrderQty": "0.000000",
+        "cummulativeQuoteQty": "198.33521500",
+        "status": "FILLED",
+        "timeInForce": "GTC",
+        "type": "LIMIT",
+        "side": "SELL",
+        "stopPrice": "0.00000000",             // 始终存在，如果订单类型不使用 stopPrice，则为零
+        "trailingDelta": 10,                   // 如果订单设置了 trailingDelta 会出现
+        "trailingTime": -1,                    // 如果订单设置了 trailingDelta 会出现
+        "icebergQty": "0.00000000",            // 始终存在，非冰山订单为零
+        "time": 1660801715639,                 // 下单时间
+        "updateTime": 1660801717945,           // 最后一次更新订单的时间
+        "isWorking": true,
+        "workingTime": 1660801715639,
+        "origQuoteOrderQty": "0.00000000",     // 始终存在，如果订单类型不使用 quoteOrderQty，则为零
+        "strategyId": 37463720,                // 如果订单设置了 strategyId  会出现
+        "strategyType": 1000000,               // 如果订单设置了 strategyType 会出现
+        "selfTradePreventionMode": "NONE",
+        "preventedMatchId": 0,                 // 这仅在订单因 STP 而过期时可见
+        "preventedQuantity": "1.200000"        // 这仅在订单因 STP 而过期时可见
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 4
+        }
+    ]
+}
+```
+**注意:** 上面的 payload 没有显示所有可以出现的字段，更多请看 [订单响应中的特定条件时才会出现的字段](#conditional-fields-in-order-responses) 部分。
+
+### 当前挂单 (USER_DATA)
+
+```javascript
+{
+    "id": "55f07876-4f6f-4c47-87dc-43e5fff3f2e7",
+    "method": "openOrders.status",
+    "params": {
+        "symbol": "BTCUSDT",
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "d632b3fdb8a81dd44f82c7c901833309dd714fe508772a89b0a35b0ee0c48b89",
+        "timestamp": 1660813156812
+    }
+}
+```
+
+查询所有挂订单的执行状态。
+
+如果您需要持续监控订单状态更新，请考虑使用 WebSocket Streams：
+
+* [`userDataStream.start`](#user-data-stream-requests) 请求
+* [`executionReport`](./user-data-stream_CN.md#executionReport) 更新
+
+**权重:**
+根据交易对的数量进行调整：
+
+| 参数 | 权重 |
+| --------- | ------ |
+| `symbol`  |      6 |
+| none      |     80 |
 
 **参数:**
 
 名称                | 类型    | 是否必需 | 描述
 ------------------- | ------- | --------- | ------------
+`symbol`            | STRING  | NO        | 如果省略，则返回所有交易对的挂单
 `apiKey`            | STRING  | YES       |
-`recvWindow`        | INT     | NO        | 值不能大于 `60000`
+`recvWindow`        | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `signature`         | STRING  | YES       |
-`timestamp`         | INT     | YES       |
+`timestamp`         | LONG    | YES       |
 
 **数据源:**
-缓存
+缓存 => 数据库
 
 **响应:**
 
+挂单的状态报告与 [`order.status`](#order-status) 相同。
+
+请注意，某些字段是可选的，仅在订单中有设置它们时才包括。
+
+挂订单始终作为平面列表返回。
+如果所有交易对被请求，请使用 `symbol` 字段来告知订单属于哪个交易对。
+
 ```javascript
 {
-  "id": "d3783d8d-f8d1-4d2c-b8a0-b7596af5a664",
-  "status": 200,
-  "result": [
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "SECOND",
-      "intervalNum": 10,
-      "limit": 50,
-      "count": 0
-    },
-    {
-      "rateLimitType": "ORDERS",
-      "interval": "DAY",
-      "intervalNum": 1,
-      "limit": 160000,
-      "count": 0
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 40
-    }
-  ]
+    "id": "55f07876-4f6f-4c47-87dc-43e5fff3f2e7",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BTCUSDT",
+            "orderId": 12569099453,
+            "orderListId": -1,
+            "clientOrderId": "4d96324ff9d44481926157",
+            "price": "23416.10000000",
+            "origQty": "0.00847000",
+            "executedQty": "0.00720000",
+            "origQuoteOrderQty": "0.000000",
+            "cummulativeQuoteQty": "172.43931000",
+            "status": "PARTIALLY_FILLED",
+            "timeInForce": "GTC",
+            "type": "LIMIT",
+            "side": "SELL",
+            "stopPrice": "0.00000000",
+            "icebergQty": "0.00000000",
+            "time": 1660801715639,
+            "updateTime": 1660801717945,
+            "isWorking": true,
+            "workingTime": 1660801715639,
+            "origQuoteOrderQty": "0.00000000",
+            "selfTradePreventionMode": "NONE"
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 6
+        }
+    ]
 }
 ```
+
+**注意:** 上面的 payload 没有显示所有可以出现的字段，更多请看 [订单响应中的特定条件时才会出现的字段](#conditional-fields-in-order-responses) 部分。
 
 ### 账户订单历史 (USER_DATA)
 
 ```javascript
 {
-  "id": "734235c2-13d2-4574-be68-723e818c08f3",
-  "method": "allOrders",
-  "params": {
-    "symbol": "BTCUSDT",
-    "startTime": 1660780800000,
-    "endTime": 1660867200000,
-    "limit": 5,
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "f50a972ba7fad92842187643f6b930802d4e20bce1ba1e788e856e811577bd42",
-    "timestamp": 1661955123341
-  }
+    "id": "734235c2-13d2-4574-be68-723e818c08f3",
+    "method": "allOrders",
+    "params": {
+        "symbol": "BTCUSDT",
+        "startTime": 1660780800000,
+        "endTime": 1660867200000,
+        "limit": 5,
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "f50a972ba7fad92842187643f6b930802d4e20bce1ba1e788e856e811577bd42",
+        "timestamp": 1661955123341
+    }
 }
 ```
 
@@ -6209,14 +6846,14 @@ NONE
 名称                | 类型    | 是否必需 | 描述
 ------------------- | ------- | --------- | ------------
 `symbol`            | STRING  | YES       |
-`orderId`           | INT     | NO        | 起始订单ID
-`startTime`         | INT     | NO        |
-`endTime`           | INT     | NO        |
-`limit`             | INT     | NO        | 默认 500; 最大值 1000
+`orderId`           | LONG    | NO        | 起始订单ID
+`startTime`         | LONG    | NO        |
+`endTime`           | LONG    | NO        |
+`limit`             | INT     | NO        | 默认值： 500； 最大值： 1000
 `apiKey`            | STRING  | YES       |
-`recvWindow`        | INT     | NO        | 值不能大于 `60000`
+`recvWindow`        | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `signature`         | STRING  | YES       |
-`timestamp`         | INT     | YES       |
+`timestamp`         | LONG    | YES       |
 
 备注：
 
@@ -6243,42 +6880,241 @@ NONE
 
 ```javascript
 {
-  "id": "734235c2-13d2-4574-be68-723e818c08f3",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BTCUSDT",
-      "orderId": 12569099453,
-      "orderListId": -1,
-      "clientOrderId": "4d96324ff9d44481926157",
-      "price": "23416.10000000",
-      "origQty": "0.00847000",
-      "executedQty": "0.00847000",
-      "cummulativeQuoteQty": "198.33521500",
-      "status": "FILLED",
-      "timeInForce": "GTC",
-      "type": "LIMIT",
-      "side": "SELL",
-      "stopPrice": "0.00000000",
-      "icebergQty": "0.00000000",
-      "time": 1660801715639,
-      "updateTime": 1660801717945,
-      "isWorking": true,
-      "origQuoteOrderQty": "0.00000000",
-      "selfTradePreventionMode": "NONE",
-      "preventedMatchId": 0,              // 这仅在订单因 STP 而过期时可见
-      "preventedQuantity": "1.200000"     // 这仅在订单因 STP 而过期时可见
+    "id": "734235c2-13d2-4574-be68-723e818c08f3",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BTCUSDT",
+            "orderId": 12569099453,
+            "orderListId": -1,
+            "clientOrderId": "4d96324ff9d44481926157",
+            "price": "23416.10000000",
+            "origQty": "0.00847000",
+            "executedQty": "0.00847000",
+            "cummulativeQuoteQty": "198.33521500",
+            "status": "FILLED",
+            "timeInForce": "GTC",
+            "type": "LIMIT",
+            "side": "SELL",
+            "stopPrice": "0.00000000",
+            "icebergQty": "0.00000000",
+            "time": 1660801715639,
+            "updateTime": 1660801717945,
+            "isWorking": true,
+            "origQuoteOrderQty": "0.00000000",
+            "selfTradePreventionMode": "NONE",
+            "preventedMatchId": 0,              // 这仅在订单因 STP 而过期时可见
+            "preventedQuantity": "1.200000"     // 这仅在订单因 STP 而过期时可见
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 20
+        }
+    ]
+}
+```
+
+<a id="orderList-status"></a>
+
+#### 查询订单列表 (USER_DATA)
+
+```javascript
+{
+    "id": "b53fd5ff-82c7-4a04-bd64-5f9dc42c2100",
+    "method": "orderList.status",
+    "params": {
+        "origClientOrderId": "08985fedd9ea2cf6b28996",
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "d12f4e8892d46c0ddfbd43d556ff6d818581b3be22a02810c2c20cb719aed6a4",
+        "timestamp": 1660801713965
     }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 20
+}
+```
+
+检查订单列表的执行状态。
+
+对于单个订单的执行状态，使用 [`order.status`](#order-status)。
+
+**权重:**
+4
+
+**Parameters**:
+
+<table>
+<thead>
+    <tr>
+        <th>名称</th>
+        <th>类型</th>
+        <th>是否必需</th>
+        <th>描述</th>
+    </tr>
+</thead>
+<tbody>
+    <tr>
+        <td><code>origClientOrderId</code></td>
+        <td>STRING</td>
+        <td rowspan="2">NO*</td>
+        <td>通过 <code>listClientOrderId</code> 获取订单列表。 <br> 必须提供 <code>orderListId</code> 或 <code>origClientOrderId</code>。</td>
+    </tr>
+    <tr>
+        <td><code>orderListId</code></td>
+        <td>INT</td>
+        <td>通过 <code>orderListId</code> 获取订单列表。<br> 必须提供 <code>orderListId</code> 或 <code>origClientOrderId</code>。</td>
+    </tr>
+    <tr>
+        <td><code>apiKey</code></td>
+        <td>STRING</td>
+        <td>YES</td>
+        <td></td>
+    </tr>
+    <tr>
+        <td><code>recvWindow</code></td>
+        <td>DECIMAL</td>
+        <td>NO</td>
+        <td>值不能大于 <tt>60000</tt>。<br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。</td>
+    </tr>
+    <tr>
+        <td><code>signature</code></td>
+        <td>STRING</td>
+        <td>YES</td>
+        <td></td>
+    </tr>
+    <tr>
+        <td><code>timestamp</code></td>
+        <td>LONG</td>
+        <td>YES</td>
+        <td></td>
+    </tr>
+</tbody>
+</table>
+
+备注：
+
+* `origClientOrderId` 指的是订单列表本身的 `listClientOrderId`。
+
+* 如果同时指定了 `origClientOrderId` 和 `orderListId` 参数，仅使用 `origClientOrderId` 并忽略 `orderListId`。
+
+**数据源:**
+数据库
+
+**响应:**
+
+```javascript
+{
+    "id": "b53fd5ff-82c7-4a04-bd64-5f9dc42c2100",
+    "status": 200,
+    "result": {
+        "orderListId": 1274512,
+        "contingencyType": "OCO",
+        "listStatusType": "EXEC_STARTED",
+        "listOrderStatus": "EXECUTING",
+        "listClientOrderId": "08985fedd9ea2cf6b28996",
+        "transactionTime": 1660801713793,
+        "symbol": "BTCUSDT",
+        "orders": [
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569138901,
+                "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU"
+            },
+            {
+                "symbol": "BTCUSDT",
+                "orderId": 12569138902,
+                "clientOrderId": "jLnZpj5enfMXTuhKB1d0us"
+            }
+        ]
+    },
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 4
+        }
+    ]
+}
+```
+
+#### 查询订单列表挂单 (USER_DATA)
+
+```javascript
+{
+    "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
+    "method": "openOrderLists.status",
+    "params": {
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "1bea8b157dd78c3da30359bddcd999e4049749fe50b828e620e12f64e8b433c9",
+        "timestamp": 1660801713831
     }
-  ]
+}
+```
+
+查询所有订单列表挂单的执行状态。
+
+如果您需要持续监控订单状态更新，请考虑使用 WebSocket Streams：
+
+* [`userDataStream.start`](#user-data-stream-requests) 请求
+* [`executionReport`](./user-data-stream_CN.md#executionReport) 更新
+
+**权重:**
+6
+
+**参数:**
+
+名称                | 类型    | 是否必需 | 描述
+------------------- | ------- | --------- | ------------
+`apiKey`            | STRING  | YES       |
+`recvWindow`        | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
+`signature`         | STRING  | YES       |
+`timestamp`         | LONG    | YES       |
+
+**数据源:**
+数据库
+
+**响应:**
+
+```javascript
+{
+    "id": "3a4437e2-41a3-4c19-897c-9cadc5dce8b6",
+    "status": 200,
+    "result": [
+        {
+            "orderListId": 0,
+            "contingencyType": "OCO",
+            "listStatusType": "EXEC_STARTED",
+            "listOrderStatus": "EXECUTING",
+            "listClientOrderId": "08985fedd9ea2cf6b28996",
+            "transactionTime": 1660801713793,
+            "symbol": "BTCUSDT",
+            "orders": [
+                {
+                    "symbol": "BTCUSDT",
+                    "orderId": 4,
+                    "clientOrderId": "CUhLgTXnX5n2c0gWiLpV4d"
+                },
+                {
+                    "symbol": "BTCUSDT",
+                    "orderId": 5,
+                    "clientOrderId": "1ZqG7bBuYwaF4SU8CwnwHm"
+                }
+            ]
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 6
+        }
+    ]
 }
 ```
 
@@ -6286,16 +7122,16 @@ NONE
 
 ```javascript
 {
-  "id": "8617b7b3-1b3d-4dec-94cd-eefd929b8ceb",
-  "method": "allOrderLists",
-  "params": {
-    "startTime": 1660780800000,
-    "endTime": 1660867200000,
-    "limit": 5,
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "c8e1484db4a4a02d0e84dfa627eb9b8298f07ebf12fcc4eaf86e4a565b2712c2",
-    "timestamp": 1661955123341
-  }
+    "id": "8617b7b3-1b3d-4dec-94cd-eefd929b8ceb",
+    "method": "allOrderLists",
+    "params": {
+        "startTime": 1660780800000,
+        "endTime": 1660867200000,
+        "limit": 5,
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "c8e1484db4a4a02d0e84dfa627eb9b8298f07ebf12fcc4eaf86e4a565b2712c2",
+        "timestamp": 1661955123341
+    }
 }
 ```
 
@@ -6309,13 +7145,13 @@ NONE
 名称                | 类型    | 是否必需 | 描述
 ------------------- | ------- | --------- | ------------
 `fromId`            | INT     | NO        | 起始的 Order list ID
-`startTime`         | INT     | NO        |
-`endTime`           | INT     | NO        |
-`limit`             | INT     | NO        | 默认 500; 最大值 1000
+`startTime`         | LONG    | NO        |
+`endTime`           | LONG    | NO        |
+`limit`             | INT     | NO        | 默认值： 500； 最大值： 1000
 `apiKey`            | STRING  | YES       |
-`recvWindow`        | INT     | NO        | 值不能大于 `60000`
+`recvWindow`        | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `signature`         | STRING  | YES       |
-`timestamp`         | INT     | YES       |
+`timestamp`         | LONG    | YES       |
 
 备注：
 
@@ -6338,40 +7174,40 @@ NONE
 
 ```javascript
 {
-  "id": "8617b7b3-1b3d-4dec-94cd-eefd929b8ceb",
-  "status": 200,
-  "result": [
-    {
-      "orderListId": 1274512,
-      "contingencyType": "OCO",
-      "listStatusType": "EXEC_STARTED",
-      "listOrderStatus": "EXECUTING",
-      "listClientOrderId": "08985fedd9ea2cf6b28996",
-      "transactionTime": 1660801713793,
-      "symbol": "BTCUSDT",
-      "orders": [
+    "id": "8617b7b3-1b3d-4dec-94cd-eefd929b8ceb",
+    "status": 200,
+    "result": [
         {
-          "symbol": "BTCUSDT",
-          "orderId": 12569138901,
-          "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU"
-        },
-        {
-          "symbol": "BTCUSDT",
-          "orderId": 12569138902,
-          "clientOrderId": "jLnZpj5enfMXTuhKB1d0us"
+            "orderListId": 1274512,
+            "contingencyType": "OCO",
+            "listStatusType": "EXEC_STARTED",
+            "listOrderStatus": "EXECUTING",
+            "listClientOrderId": "08985fedd9ea2cf6b28996",
+            "transactionTime": 1660801713793,
+            "symbol": "BTCUSDT",
+            "orders": [
+                {
+                    "symbol": "BTCUSDT",
+                    "orderId": 12569138901,
+                    "clientOrderId": "BqtFCj5odMoWtSqGk2X9tU"
+                },
+                {
+                    "symbol": "BTCUSDT",
+                    "orderId": 12569138902,
+                    "clientOrderId": "jLnZpj5enfMXTuhKB1d0us"
+                }
+            ]
         }
-      ]
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 20
-    }
-  ]
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 20
+        }
+    ]
 }
 ```
 
@@ -6379,38 +7215,43 @@ NONE
 
 ```javascript
 {
-  "id": "f4ce6a53-a29d-4f70-823b-4ab59391d6e8",
-  "method": "myTrades",
-  "params": {
-    "symbol": "BTCUSDT",
-    "startTime": 1660780800000,
-    "endTime": 1660867200000,
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "c5a5ffb79fd4f2e10a92f895d488943a57954edf5933bde3338dfb6ea6d6eefc",
-    "timestamp": 1661955125250
-  }
+    "id": "f4ce6a53-a29d-4f70-823b-4ab59391d6e8",
+    "method": "myTrades",
+    "params": {
+        "symbol": "BTCUSDT",
+        "startTime": 1660780800000,
+        "endTime": 1660867200000,
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "c5a5ffb79fd4f2e10a92f895d488943a57954edf5933bde3338dfb6ea6d6eefc",
+        "timestamp": 1661955125250
+    }
 }
 ```
 
 获取账户指定交易对的成交历史，按时间范围过滤。
 
 **权重:**
-20
+
+条件| 权重|
+ ---| ---
+ |没有 orderId|20|
+ |有 orderId|5|
+
 
 **参数:**
 
 名称                | 类型    | 是否必需 | 描述
 ------------------- | ------- | --------- | ------------
 `symbol`            | STRING  | YES       |
-`orderId`           | INT     | NO        |
-`startTime`         | INT     | NO        |
-`endTime`           | INT     | NO        |
+`orderId`           | LONG    | NO        |
+`startTime`         | LONG    | NO        |
+`endTime`           | LONG    | NO        |
 `fromId`            | INT     | NO        | 起始交易 ID
-`limit`             | INT     | NO        | 默认 500; 最大值 1000
+`limit`             | INT     | NO        | 默认值： 500； 最大值： 1000
 `apiKey`            | STRING  | YES       |
-`recvWindow`        | INT     | NO        | 值不能大于 `60000`
+`recvWindow`        | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `signature`         | STRING  | YES       |
-`timestamp`         | INT     | YES       |
+`timestamp`         | LONG    | YES       |
 
 备注：
 
@@ -6435,49 +7276,116 @@ NONE
 
 ```javascript
 {
-  "id": "f4ce6a53-a29d-4f70-823b-4ab59391d6e8",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BTCUSDT",
-      "id": 1650422481,
-      "orderId": 12569099453,
-      "orderListId": -1,
-      "price": "23416.10000000",
-      "qty": "0.00635000",
-      "quoteQty": "148.69223500",
-      "commission": "0.00000000",
-      "commissionAsset": "BNB",
-      "time": 1660801715793,
-      "isBuyer": false,
-      "isMaker": true,
-      "isBestMatch": true
-    },
-    {
-      "symbol": "BTCUSDT",
-      "id": 1650422482,
-      "orderId": 12569099453,
-      "orderListId": -1,
-      "price": "23416.50000000",
-      "qty": "0.00212000",
-      "quoteQty": "49.64298000",
-      "commission": "0.00000000",
-      "commissionAsset": "BNB",
-      "time": 1660801715793,
-      "isBuyer": false,
-      "isMaker": true,
-      "isBestMatch": true
+    "id": "f4ce6a53-a29d-4f70-823b-4ab59391d6e8",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BTCUSDT",
+            "id": 1650422481,
+            "orderId": 12569099453,
+            "orderListId": -1,
+            "price": "23416.10000000",
+            "qty": "0.00635000",
+            "quoteQty": "148.69223500",
+            "commission": "0.00000000",
+            "commissionAsset": "BNB",
+            "time": 1660801715793,
+            "isBuyer": false,
+            "isMaker": true,
+            "isBestMatch": true
+        },
+        {
+            "symbol": "BTCUSDT",
+            "id": 1650422482,
+            "orderId": 12569099453,
+            "orderListId": -1,
+            "price": "23416.50000000",
+            "qty": "0.00212000",
+            "quoteQty": "49.64298000",
+            "commission": "0.00000000",
+            "commissionAsset": "BNB",
+            "time": 1660801715793,
+            "isBuyer": false,
+            "isMaker": true,
+            "isBestMatch": true
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 20
+        }
+    ]
+}
+```
+
+<a id="query-unfilled-order-count"></a>
+
+### 查询未成交的订单计数 (USER_DATA)
+
+```javascript
+{
+    "id": "d3783d8d-f8d1-4d2c-b8a0-b7596af5a664",
+    "method": "account.rateLimits.orders",
+    "params": {
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "76289424d6e288f4dc47d167ac824e859dabf78736f4348abbbac848d719eb94",
+        "timestamp": 1660801839500
     }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 20
-    }
-  ]
+}
+```
+
+显示用户在所有时间间隔内的未成交订单计数。
+
+**权重:**
+40
+
+**参数:**
+
+名称                | 类型    | 是否必需 | 描述
+------------------- | ------- | --------- | ------------
+`apiKey`            | STRING  | YES       |
+`recvWindow`        | DECIMAL | NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
+`signature`         | STRING  | YES       |
+`timestamp`         | LONG    | YES       |
+
+**数据源:**
+缓存
+
+**响应:**
+
+```javascript
+{
+    "id": "d3783d8d-f8d1-4d2c-b8a0-b7596af5a664",
+    "status": 200,
+    "result": [
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "SECOND",
+            "intervalNum": 10,
+            "limit": 50,
+            "count": 0
+        },
+        {
+            "rateLimitType": "ORDERS",
+            "interval": "DAY",
+            "intervalNum": 1,
+            "limit": 160000,
+            "count": 0
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 40
+        }
+    ]
 }
 ```
 
@@ -6485,15 +7393,15 @@ NONE
 
 ```javascript
 {
-  "id": "g4ce6a53-a39d-4f71-823b-4ab5r391d6y8",
-  "method": "myPreventedMatches",
-  "params": {
-    "symbol": "BTCUSDT",
-    "orderId": 35,
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "c5a5ffb79fd4f2e10a92f895d488943a57954edf5933bde3338dfb6ea6d6eefc",
-    "timestamp": 1673923281052
-  }
+    "id": "g4ce6a53-a39d-4f71-823b-4ab5r391d6y8",
+    "method": "myPreventedMatches",
+    "params": {
+        "symbol": "BTCUSDT",
+        "orderId": 35,
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "c5a5ffb79fd4f2e10a92f895d488943a57954edf5933bde3338dfb6ea6d6eefc",
+        "timestamp": 1673923281052
+    }
 }
 ```
 
@@ -6508,14 +7416,14 @@ NONE
 
 **参数:**
 
-名称                 | 类型   | 是否必需	     | 描述
+名称                 | 类型   | 是否必需       | 描述
 ------------        | ----   | ------------ | ------------
 symbol              | STRING | YES          |
-preventedMatchId    |LONG    | NO           |
-orderId             |LONG    | NO           |
-fromPreventedMatchId|LONG    | NO           |
-limit               |INT     | NO           | 默认：`500`；最大：`1000`
-recvWindow          | LONG   | NO           | 赋值不得大于 `60000`
+preventedMatchId    | LONG   | NO           |
+orderId             | LONG   | NO           |
+fromPreventedMatchId| LONG   | NO           |
+limit               | INT    | NO           | 默认值：`500`； 最大值：`1000`
+recvWindow          | DECIMAL| NO           | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 timestamp           | LONG   | YES          |
 
 **权重:**
@@ -6527,38 +7435,37 @@ timestamp           | LONG   | YES          |
 用 `orderId` 查询         | 20
 
 **数据源:**
-
 数据库
 
 **响应:**
 
 ```javascript
 {
-  "id": "g4ce6a53-a39d-4f71-823b-4ab5r391d6y8",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BTCUSDT",
-      "preventedMatchId": 1,
-      "takerOrderId": 5,
-      "makerSymbol": "BTCUSDT",
-      "makerOrderId": 3,
-      "tradeGroupId": 1,
-      "selfTradePreventionMode": "EXPIRE_MAKER",
-      "price": "1.100000",
-      "makerPreventedQuantity": "1.300000",
-      "transactTime": 1669101687094
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 20
-    }
-  ]
+    "id": "g4ce6a53-a39d-4f71-823b-4ab5r391d6y8",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BTCUSDT",
+            "preventedMatchId": 1,
+            "takerOrderId": 5,
+            "makerSymbol": "BTCUSDT",
+            "makerOrderId": 3,
+            "tradeGroupId": 1,
+            "selfTradePreventionMode": "EXPIRE_MAKER",
+            "price": "1.100000",
+            "makerPreventedQuantity": "1.300000",
+            "transactTime": 1669101687094
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 20
+        }
+    ]
 }
 ```
 
@@ -6566,15 +7473,15 @@ timestamp           | LONG   | YES          |
 
 ```javascript
 {
-  "id": "g4ce6a53-a39d-4f71-823b-4ab5r391d6y8",
-  "method": "myAllocations",
-  "params": {
-    "symbol": "BTCUSDT",
-    "orderId": 500,
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "c5a5ffb79fd4f2e10a92f895d488943a57954edf5933bde3338dfb6ea6d6eefc",
-    "timestamp": 1673923281052
-  }
+    "id": "g4ce6a53-a39d-4f71-823b-4ab5r391d6y8",
+    "method": "myAllocations",
+    "params": {
+        "symbol": "BTCUSDT",
+        "orderId": 500,
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "c5a5ffb79fd4f2e10a92f895d488943a57954edf5933bde3338dfb6ea6d6eefc",
+        "timestamp": 1673923281052
+    }
 }
 ```
 
@@ -6591,9 +7498,9 @@ timestamp           | LONG   | YES          |
 `startTime`                |LONG   |NO        |
 `endTime`                  |LONG   |NO        |
 `fromAllocationId`         |INT    |NO        |
-`limit`                    |INT    |NO        |默认值 500； 最大值 1000
+`limit`                    |INT    |NO        |默认值： 500； 最大值： 1000
 `orderId`                  |LONG   |NO        |
-`recvWindow`               |LONG   |NO        |不能大于 `60000`
+`recvWindow`               |DECIMAL| NO       |最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
 `timestamp`                |LONG   |NO        |
 
 支持的参数组合:
@@ -6617,35 +7524,35 @@ timestamp           | LONG   | YES          |
 
 ```javascript
 {
-  "id": "g4ce6a53-a39d-4f71-823b-4ab5r391d6y8",
-  "status": 200,
-  "result": [
-    {
-      "symbol": "BTCUSDT",
-      "allocationId": 0,
-      "allocationType": "SOR",
-      "orderId": 500,
-      "orderListId": -1,
-      "price": "1.00000000",
-      "qty": "0.10000000",
-      "quoteQty": "0.10000000",
-      "commission": "0.00000000",
-      "commissionAsset": "BTC",
-      "time": 1687319487614,
-      "isBuyer": false,
-      "isMaker": false,
-      "isAllocator": false
-    }
-  ],
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 20
-    }
-  ]
+    "id": "g4ce6a53-a39d-4f71-823b-4ab5r391d6y8",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BTCUSDT",
+            "allocationId": 0,
+            "allocationType": "SOR",
+            "orderId": 500,
+            "orderListId": -1,
+            "price": "1.00000000",
+            "qty": "0.10000000",
+            "quoteQty": "0.10000000",
+            "commission": "0.00000000",
+            "commissionAsset": "BTC",
+            "time": 1687319487614,
+            "isBuyer": false,
+            "isMaker": false,
+            "isAllocator": false
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 20
+        }
+    ]
 }
 ```
 
@@ -6654,14 +7561,14 @@ timestamp           | LONG   | YES          |
 
 ```javascript
 {
-  "id": "d3df8a61-98ea-4fe0-8f4e-0fcea5d418b0",
-  "method": "account.commission",
-  "params": {
-    "symbol": "BTCUSDT",
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
-    "signature": "c5a5ffb79fd4f2e10a92f895d488943a57954edf5933bde3338dfb6ea6d6eefc",
-    "timestamp": 1673923281052
-  }
+    "id": "d3df8a61-98ea-4fe0-8f4e-0fcea5d418b0",
+    "method": "account.commission",
+    "params": {
+        "symbol": "BTCUSDT",
+        "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A",
+        "signature": "c5a5ffb79fd4f2e10a92f895d488943a57954edf5933bde3338dfb6ea6d6eefc",
+        "timestamp": 1673923281052
+    }
 }
 ```
 
@@ -6684,222 +7591,222 @@ timestamp           | LONG   | YES          |
 
 ```javascript
 {
-  "id": "d3df8a61-98ea-4fe0-8f4e-0fcea5d418b0",
-  "status": 200,
-  "result":
-    {
-      "symbol": "BTCUSDT",
-      "standardCommission":               // 订单交易的标准佣金率。
-      {
-        "maker": "0.00000010",
-        "taker": "0.00000020",
-        "buyer": "0.00000030",
-        "seller": "0.00000040"
-      },
-      "taxCommission":                   // 订单交易的税率。
-      {
-        "maker": "0.00000112",
-        "taker": "0.00000114",
-        "buyer": "0.00000118",
-        "seller": "0.00000116"
-      },
-      "discount":                        // 以BNB支付时的标准佣金折扣。
-      {
-        "enabledForAccount": true,
-        "enabledForSymbol": true,
-        "discountAsset": "BNB",
-        "discount": "0.75000000"         // 当用BNB支付佣金时，在标准佣金上按此比率打折。
-      }
+    "id": "d3df8a61-98ea-4fe0-8f4e-0fcea5d418b0",
+    "status": 200,
+    "result": {
+        "symbol": "BTCUSDT",
+        "standardCommission": {         // 订单交易的标准佣金率。
+            "maker": "0.00000010",
+            "taker": "0.00000020",
+            "buyer": "0.00000030",
+            "seller": "0.00000040"
+        },
+        "specialCommission": {          // 订单交易的特殊佣金率。
+            "maker": "0.01000000",
+            "taker": "0.02000000",
+            "buyer": "0.03000000",
+            "seller": "0.04000000"
+        },                              // 订单交易的税率。
+        "taxCommission": {
+            "maker": "0.00000112",
+            "taker": "0.00000114",
+            "buyer": "0.00000118",
+            "seller": "0.00000116"
+        },                              // 以BNB支付时的标准佣金折扣。
+        "discount": {
+            "enabledForAccount": true,
+            "enabledForSymbol": true,
+            "discountAsset": "BNB",
+            "discount": "0.75000000"     // 当用BNB支付佣金时，在标准佣金上按此比率打折。
+        }
     },
-  "rateLimits":
-  [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 20
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 20
+        }
+    ]
+}
+```
+
+### 查询改单 (USER_DATA)
+
+```javascript
+{
+    "id": "6f5ebe91-01d9-43ac-be99-57cf062e0e30",
+    "method": "order.amendments",
+    "params": {
+        "orderId": "23",
+        "recvWindow": 5000,
+        "symbol": "BTCUSDT",
+        "timestamp": 1741925524887,
+        "apiKey": "N3Swv7WaBF7S2rzA12UkPunM3udJiDddbgv1W7CzFGnsQXH9H62zzSCST0CndjeE",
+        "signature": "0eed2e9d95b6868ea5ec21da0d14538192ef344c30ecf9fe83d58631699334dc"
     }
-  ]
+}
+```
+
+查询对一个订单的所有改单操作。
+
+**权重:**
+4
+
+**参数:**
+
+名称              | 类型    | 是否必需 | 描述
+----------------  | ------ |-------- | ---------
+`symbol`          | STRING | YES     |
+`orderId`         | LONG   | YES     |
+`fromExecutionId` | LONG   | NO      |
+`limit`           | LONG   | NO      | 默认值： 500； 最大值： 1000
+`recvWindow`      | DECIMAL| NO        | 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
+`timestamp`       | LONG   | NO      |
+
+**数据源:**
+数据库
+
+**响应:**
+
+```javascript
+{
+    "id": "6f5ebe91-01d9-43ac-be99-57cf062e0e30",
+    "status": 200,
+    "result": [
+        {
+            "symbol": "BTCUSDT",
+            "orderId": 23,
+            "executionId": 60,
+            "origClientOrderId": "my_pending_order",
+            "newClientOrderId": "xbxXh5SSwaHS7oUEOCI88B",
+            "origQty": "7.00000000",
+            "newQty": "5.00000000",
+            "time": 1741924229819
+        }
+    ],
+    "rateLimits": [
+        {
+            "rateLimitType": "REQUEST_WEIGHT",
+            "interval": "MINUTE",
+            "intervalNum": 1,
+            "limit": 6000,
+            "count": 4
+        }
+    ]
+}
+```
+
+<a id="myFilters"></a>
+### 查询相关过滤器 (USER_DATA)
+
+```javascript
+{
+    "id": "74R4febb-d142-46a2-977d-90533eb4d97g",
+    "method": "myFilters",
+    "params": {
+        "recvWindow": 5000,
+        "symbol": "BTCUSDT",
+        "timestamp": 1758008841149,
+        "apiKey": "nQ6kG5gDExDd5MZSO0MfOOWEVZmdkRllpNMfm1FjMjkMnmw1NUd3zPDfvcnDJlil",
+        "signature": "7edc54dd0493dd5bc47adbab9b17bfc9b378d55c20511ae5a168456d3d37aa3a"
+    }
+}
+```
+
+用于检索一个账户上指定交易对的 [filters](filters_CN.md) 列表。这是唯一一个目前会显示账户是否应用了 [`MAX_ASSET`](filters_CN.md#max_asset) 过滤器的方法。
+
+**权重:**
+40
+
+**参数:**
+
+名称       | 类型     | 是否必需 | 描述
+---------  | ------ |-------- | ---------
+symbol     | STRING | YES     |
+recvWindow | DECIMAL| NO      |  最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。
+timestamp  | LONG   | YES     |
+
+**数据源:**
+缓存
+
+**响应:**
+
+```javascript
+{
+    "id": "1758009606869",
+    "status": 200,
+    "result": {
+        "exchangeFilters": [
+            {
+                "filterType": "EXCHANGE_MAX_NUM_ORDERS",
+                "maxNumOrders": 1000
+            }
+        ],
+        "symbolFilters": [
+            {
+                "filterType": "MAX_NUM_ORDER_LISTS",
+                "maxNumOrderLists": 20
+            }
+        ],
+        "assetFilters": [
+            {
+                "filterType": "MAX_ASSET",
+                "asset": "JPY",
+                "limit": "1000000.00000000"
+            }
+        ]
+    }
 }
 ```
 
 <a id="user-data-stream-requests"></a>
 
-## Websocket 账户信息
+## 用户数据流请求
 
-以下请求管理 [Websocket 帐户信息](user-data-stream_CN.md) 订阅。
+### 用户数据流订阅
 
-**注意：** 账户信息只能在连接到用户数据流服务器的连接上获取, 其服务器URL是 `wss://stream.binance.com:443`.
+<a id=general_info_user_data_stream_subscriptions></a>
+**常规信息：**
 
-### 开始用户数据流 (USER_STREAM)
+* [用户数据流订阅](user-data-stream_CN.md)允许您通过 WebSocket 连接接收与指定帐户相关的所有事件。
+* 有两种方式可以启用订阅：
+  * 如果您拥有已通过验证的会话，则可以使用 [`userDataStream.subscribe`](#user-data-stream-subscribe) 来订阅该已通过验证帐户的相关事件。
+  * 在任何会话中，无论是否通过验证，如果您能为相关账户提供 API Key， 那么您可以使用 [`userdataStream.subscribe.signature`](#user-data-signature) 来订阅一个或多个账户的相关事件。
+  * 一个帐户在指定连接上只能有一个有效订阅。
+* 订阅由用订阅时返回的 `subscriptionId` 标识。该 `subscriptionId` 允许您将收到的事件映射到给定的订阅。
+* 可以使用 [`session.subscriptions`](#session-subscription) 查找会话的所有有效订阅。
+* 限制
+  * 单个会话最多可同时支持**1,000 个有效订阅**。
+    * 尝试启用超出此限制的新订阅将导致错误。
+    * 如果您的帐户非常活跃，我们建议您不要一次启用过多的订阅，以免连接过载。
+  * 单个会话在其生命周期内最多可处理**65,535 个订阅**。
+    * 如果达到此限制，您将收到错误，并且必须重新建立连接才能启用新的订阅。
+* 要验证用户数据流订阅的状态，请检查 [`session.status`](#query-session-status) 中的 `userDataStream` 字段：
+  * `null` - 此 WebSocket API 上**不提供**用户数据流订阅。
+  * `true` - 此会话中**至少有一个有效订阅**。
+  * `false` - 此会话中**没有有效订阅**。
 
-```javascript
-{
-  "id": "d3df8a61-98ea-4fe0-8f4e-0fcea5d418b0",
-  "method": "userDataStream.start",
-  "params": {
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A"
-  }
-}
-```
+<a id="user-data-stream-subscribe"></a>
 
-开始新的用户数据流
-
-**注意：**
-数据流将在 60 分钟后关闭，除非定期发送 [`userDataStream.ping`](#user_data_stream_ping) 请求。
-
-**权重:**
-2
-
-**参数:**
-
-名称                | 类型    | 是否必需 | 描述
-------------------- | ------- | --------- | ------------
-`apiKey`            | STRING  | YES       |
-
-
-**数据源:**
-缓存
-
-**响应:**
-
-之后在 WebSocket Stream 上订阅收到的 listen key。
-
+#### 订阅用户数据流 (USER_STREAM)
 
 ```javascript
 {
-  "id": "d3df8a61-98ea-4fe0-8f4e-0fcea5d418b0",
-  "status": 200,
-  "result": {
-    "listenKey": "xs0mRXdAKlIPDRFrlPcw0qI41Eh3ixNntmymGyhrhgqo7L6FuLaWArTD7RLP"
-  },
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
+    "id": "d3df8a21-98ea-4fe0-8f4e-0fcea5d418b7",
+    "method": "userDataStream.subscribe"
 }
 ```
 
-<a id="user_data_stream_ping"></a>
-
-### Ping 账户数据流 (USER_STREAM)
-
-```javascript
-{
-  "id": "815d5fce-0880-4287-a567-80badf004c74",
-  "method": "userDataStream.ping",
-  "params": {
-    "listenKey": "xs0mRXdAKlIPDRFrlPcw0qI41Eh3ixNntmymGyhrhgqo7L6FuLaWArTD7RLP",
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A"
-  }
-}
-```
-
-即使在监听, 用户数据流也会在60分钟后会自动关闭。
-若要保持账户数据流的活动状态，必须使用 `userDataStream.ping` 请求定期发送 ping，建议的是在每30分钟发送一次 ping。
-
-**权重:**
-2
-
-**参数:**
-
-名称                | 类型    | 是否必需 | 描述
-------------------- | ------- | --------- | ------------
-`listenKey`         | STRING  | YES       |
-`apiKey`            | STRING  | YES       |
-
-**数据源:**
-缓存
-
-**响应:**
-
-```javascript
-{
-  "id": "815d5fce-0880-4287-a567-80badf004c74",
-  "status": 200,
-  "response": {},
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
-}
-```
-
-### 关闭账户数据流 (USER_STREAM)
-
-```javascript
-{
-  "id": "819e1b1b-8c06-485b-a13e-131326c69599",
-  "method": "userDataStream.stop",
-  "params": {
-    "listenKey": "xs0mRXdAKlIPDRFrlPcw0qI41Eh3ixNntmymGyhrhgqo7L6FuLaWArTD7RLP",
-    "apiKey": "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A"
-  }
-}
-```
-
-强制停止和关闭账户数据流
-
-**权重:**
-2
-
-**参数:**
-
-名称                | 类型    | 是否必需 | 描述
-------------------- | ------- | --------- | ------------
-`listenKey`         | STRING  | YES       |
-`apiKey`            | STRING  | YES       |
-
-**数据源:**
-缓存
-
-**响应:**
-```javascript
-{
-  "id": "819e1b1b-8c06-485b-a13e-131326c69599",
-  "status": 200,
-  "response": {},
-  "rateLimits": [
-    {
-      "rateLimitType": "REQUEST_WEIGHT",
-      "interval": "MINUTE",
-      "intervalNum": 1,
-      "limit": 6000,
-      "count": 2
-    }
-  ]
-}
-```
-
-<a id="user_data_stream_susbcribe"></a>
-
-### 订阅账户数据流 (USER_STREAM)
-
-```javascript
-{
-  "id": "d3df8a21-98ea-4fe0-8f4e-0fcea5d418b7",
-  "method": "userDataStream.subscribe"
-}
-```
-
-订阅当前 WebSocket 连接中的账户数据流。
+订阅当前 WebSocket 连接中的用户数据流。
 
 **注意：**
 
 * 此方法需要使用 Ed25519 密钥并经过鉴权的 WebSocket 连接。请参考 [`session.logon`](#session-logon)。
-* 账户数据流在 JSON 和 SBE 会话中均可用。
-  * 有关事件格式详情，请参阅 [WebSocket 账户接口](user-data-stream_CN.md)。
+* 如果需要查看订阅状态,可以通过 [`session.status `](#query-session-status)查询，当`userDataStream` 字段值为 `true` 时,表示您有一个有效的订阅.
+* 用户数据流在 JSON 和 [SBE 会话](./faqs/sbe_faq_CN.md) 中均可用。
+  * 有关事件格式详情，请参阅 [用户数据流](user-data-stream_CN.md)。
   * 对于 SBE，仅支持 SBE 模式 2:1 或更高版本。
 
 **权重:**
@@ -6909,61 +7816,128 @@ timestamp           | LONG   | YES          |
 无
 
 **响应:**
-```javascript
-
-{
-  "id": "d3df8a21-98ea-4fe0-8f4e-0fcea5d418b7",
-  "status": 200,
-  "result": {}
-}
-```
-
-来自 WebSocket API 的 账户数据流 payload 示例:
 
 ```javascript
 {
-  "event": {
-    "e": "outboundAccountPosition",
-    "E": 1728972148778,
-    "u": 1728972148778,
-    "B": [
-      {
-        "a": "ABC",
-        "f": "11818.00000000",
-        "l": "182.00000000"
-      },
-      {
-        "a": "DEF",
-        "f": "10580.00000000",
-        "l": "70.00000000"
-      }
-    ]
-  }
+    "id": "d3df8a21-98ea-4fe0-8f4e-0fcea5d418b7",
+    "status": 200,
+    "result": {
+        "subscriptionId": 0
+    }
 }
 ```
 
-### 取消订阅账户数据流 (USER_STREAM)
+#### 取消订阅用户数据流
 
 ```javascript
 {
-  "id": "d3df8a21-98ea-4fe0-8f4e-0fcea5d418b7",
-  "method": "userDataStream.unsubscribe"
+    "id": "d3df8a21-98ea-4fe0-8f4e-0fcea5d418b7",
+    "method": "userDataStream.unsubscribe"
 }
 ```
 
-取消订阅当前 WebSocket 连接中的账户数据流。
+取消订阅当前 WebSocket 连接中的用户数据流。
+
+请注意 `session.logout` 只会关闭由 `userDataStream.subscribe` 创建的订阅，并不会关闭通过 `userDataStream.subscribe.signature` 创建的订阅。
 
 **权重:**
 2
 
 **参数:**
-无
+
+名称               | 类型    | 是否必需 | 描述
+----------------  | ------ |-------- | ---------
+| `subscriptionId`| INT    | No      | 如果在进行调用时不用该参数，将会关闭所有订阅。 <br>如果在进行调用时使用 `subscriptionId` 参数，如果该 ID 存在的话，将尝试关闭与该 ID 匹配的订阅。 |
 
 **响应:**
+
 ```javascript
 {
-  "id": "d3df8a21-98ea-4fe0-8f4e-0fcea5d418b7",
-  "status": 200,
-  "result": {}
+    "id": "d3df8a21-98ea-4fe0-8f4e-0fcea5d418b7",
+    "status": 200,
+    "result": {}
+}
+```
+
+<a id="session-subscription"></a>
+
+#### 显示所有订阅
+
+```javascript
+{
+    "id": "d3df5a22-88ea-4fe0-9f4e-0fcea5d418b7",
+    "method": "session.subscriptions",
+    "params": {}
+}
+```
+
+**注意：**
+
+* 用户按需要跟踪相关帐户的对应订阅情况。
+
+**权重:**
+2
+
+**数据源:**
+缓存
+
+**响应:**
+
+```javascript
+{
+    "id": "d3df5a22-88ea-4fe0-9f4e-0fcea5d418b7",
+    "status": 200,
+    "result": [
+        {
+            "subscriptionId": 0
+        },
+        {
+            "subscriptionId": 1
+        }
+    ]
+}
+```
+
+<a id="user-data-signature"></a>
+
+#### 通过签名订阅的方式订阅用户数据流 (USER_STREAM)
+
+```javascript
+{
+    "id": "d3df8a22-98ea-4fe0-9f4e-0fcea5d418b7",
+    "method": "userDataStream.subscribe.signature",
+    "params": {
+        "apiKey": "mjcKCrJzTU6TChLsnPmgnQJJMR616J4yWvdZWDUeXkk6vL6dLyS7rcVOQlADlVjA",
+        "timestamp": 1747385641636,
+        "signature": "yN1vWpXb+qoZ3/dGiFs9vmpNdV7e3FxkA+BstzbezDKwObcijvk/CVkWxIwMCtCJbP270R0OempYwEpS6rDZCQ=="
+    }
+}
+```
+
+**权重:**
+2
+
+**参数:**
+
+名称               | 类型    | 是否必需 | 描述
+----------------  | ------ |-------- | ---------
+| `apiKey`        | STRING  | Yes    |
+| `timestamp`     | LONG    | Yes    |
+| `signature`     | STRING  | Yes    |
+| `recvWindow`   |DECIMAL     | No| 最大值为 `60000` 毫秒。 <br> 支持最多三位小数的精度（例如 6000.346），以便可以指定微秒。|
+
+
+**数据源:**
+缓存
+
+**响应:**
+
+```javascript
+{
+    "id": "d3df8a22-98ea-4fe0-9f4e-0fcea5d418b7",
+    "status": 200,
+    "result": {
+        "subscriptionId": 0
+    }
 }
 ```
